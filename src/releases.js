@@ -3,6 +3,12 @@ import packageInfo from '../package.json';
 export const APP_VERSION = packageInfo.version;
 export const RELEASE_STORAGE_KEY = 'pdf-studio-release-seen';
 export const RELEASES = {
+  '0.8.0': [
+    'Place text anywhere on a page and drag its handle to move it.',
+    'Choose text fonts, sizes, and colors with a live preview.',
+    'Edit text overlays and comments, or change markup colors.',
+    'Delete annotations and undo or redo each change.',
+  ],
   '0.7.0': [
     'Select and copy existing PDF text.',
     'Highlight or underline selected text in your chosen color.',

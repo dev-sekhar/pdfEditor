@@ -4,7 +4,7 @@ test('shows concise release notes once per version and can reopen them', async (
   await page.goto('/');
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('heading')).toHaveText('What’s new in PDF Studio 0.7.0');
+  await expect(dialog.getByRole('heading')).toHaveText('What’s new in PDF Studio 0.8.0');
   await expect(dialog.locator('li')).toHaveCount(4);
   await expect(dialog.getByRole('button', { name: 'Got it' })).toBeFocused();
   await page.screenshot({ path: 'test-results/release-notes.png' });

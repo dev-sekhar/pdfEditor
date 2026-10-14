@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import { assemble, move, stampDocument } from './pdf';
+import { assemble, move } from './pdf';
 import { createHistory, historyReducer, historyShortcut } from './history';
 import { PageCanvas, usePreviewDocument } from './PdfPreview';
 import { savePdf } from './save';
@@ -16,6 +16,11 @@ import MarkupControls from './MarkupControls';
 import { createMarkup } from './markup';
 import CommentsPanel, { CommentMarkers } from './CommentsPanel';
 import { createComment, addPageComment } from './comments';
+import TextOverlayLayer from './TextOverlayLayer';
+import { editPageAnnotation, DEFAULT_TEXT_STYLE } from './text-overlays';
+import TextStyleControls from './TextStyleControls';
+import AnnotationInspector from './AnnotationInspector';
+import { updateAnnotation, removeAnnotation } from './annotation-editing';
 import { importStudioAnnotations } from './annotation-import';
 
 export default function App() {
@@ -23,7 +28,12 @@ export default function App() {
   const { sources, pages, index, bytes } = history.present;
   const [text, setText] = useState('');
   const [selection, setSelection] = useState(null);
-  const [selectedComment, setSelectedComment] = useState(null);
+
+  const [placingText, setPlacingText] = useState(false);
+  const [textStyle, setTextStyle] = useState(DEFAULT_TEXT_STYLE);
+  const [textStyleValid, setTextStyleValid] = useState(true);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
+  const selectedText = pages[index]?.annotations?.find(item => item.id === selectedAnnotationId && item.type === 'text') ?? null;
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingFiles, setPendingFiles] = useState(null);
@@ -47,6 +57,8 @@ export default function App() {
   const canRedo = history.future.length > 0;
 
   useEffect(() => setSelection(null), [index, bytes]);
+  useEffect(() => { setPlacingText(false); setSelectedAnnotationId(null); }, [pages[index]?.id]);
+  useEffect(() => { if (!textStyleValid) setPlacingText(false); }, [textStyleValid]);
 
   const navigateHistory = useCallback(type => {
     if (busyRef.current) return;
@@ -129,16 +141,17 @@ export default function App() {
       const y = box.y + Math.max(0, box.height - 44 - (count % Math.max(1, Math.floor(box.height / 28))) * 28);
       const comment = createComment(content, x, y);
       await commit(sources, addPageComment(pages, pages[index].id, comment), index, 'Add comment');
-      setSelectedComment(comment.id);
+      setSelectedAnnotationId(comment.id);
     });
   }
 
-  function stamp() {
-    void perform(async () => {
-      const rebased = await stampDocument(sources, pages, { page: index, text, x: 50, y: 700, size: 14 });
-      await commit(rebased.sources, rebased.pages, index, 'Add text');
-      setText('');
-    });
+  function placeText(x, y) {
+    const annotation = { id: crypto.randomUUID(), type: 'text', text, x, y,
+      ...textStyle };
+    change(pages.map((page, i) => i === index ? { ...page,
+      annotations: [...(page.annotations ?? []), annotation] } : page), index, 'Add text');
+    setPlacingText(false);
+    setSelectedAnnotationId(annotation.id);
   }
 
   async function save(extract = false, saveAs = true) {
@@ -202,6 +215,7 @@ export default function App() {
     const annotation = createMarkup(type, selection, color);
     change(pages.map((page, i) => i === index ? { ...page, annotations: [...(page.annotations || []), annotation] } : page), index,
       type === 'highlight' ? 'Highlight text' : 'Underline text');
+    setSelectedAnnotationId(annotation.id);
   }
 
   function removeMarkup(id) {
@@ -321,10 +335,13 @@ export default function App() {
       <section ref={viewport} aria-label="Selected page">
         {(error || preview.error) && <p className="error" role="alert">{error || preview.error}</p>}
         {bytes ? (preview.pdf ? <PageCanvas key={`${preview.id}-${index}`} pdf={preview.pdf} index={index}
-
           zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} onSelection={setSelection}
-          renderOverlay={pageViewport => <CommentMarkers viewport={pageViewport} annotations={pages[index]?.annotations}
-            selectedId={selectedComment} onSelect={setSelectedComment} />} /> :
+          renderOverlay={pageViewport => <>
+            <TextOverlayLayer viewport={pageViewport} annotations={pages[index]?.annotations} placing={placingText} disabled={busy}
+              onPlace={placeText} onSelect={setSelectedAnnotationId} onMove={(id, x, y) => change(editPageAnnotation(pages, pages[index].id, id, { x, y }), index, 'Move text')} />
+            <CommentMarkers viewport={pageViewport} annotations={pages[index]?.annotations}
+              selectedId={selectedAnnotationId} onSelect={setSelectedAnnotationId} />
+          </>} /> :
           <p role="status">Loading document…</p>) : <div className="empty">
             <h1>Welcome to PDF Studio</h1>
             <p>Open PDFs to merge, rearrange, rotate, delete, extract, or add text.</p>
@@ -335,12 +352,24 @@ export default function App() {
         <MarkupControls selection={selection} annotations={pages[index]?.annotations} disabled={busy || !pages.length}
           onAdd={addMarkup} onRemove={removeMarkup} />
         <CommentsPanel annotations={pages[index]?.annotations} disabled={busy || !pages.length}
-          onAdd={addComment} selectedId={selectedComment} onSelect={setSelectedComment} />
+          onAdd={addComment} selectedId={selectedAnnotationId} onSelect={setSelectedAnnotationId} />
+        <AnnotationInspector annotations={pages[index]?.annotations ?? []} selectedId={selectedAnnotationId} disabled={busy}
+          onSelect={setSelectedAnnotationId} onApply={(id, draft) => {
+            void perform(async () => {
+              const nextPages = updateAnnotation(pages, pages[index].id, id, draft);
+              if (nextPages !== pages) await commit(sources, nextPages, index, 'Edit annotation');
+            });
+          }} onDelete={id => {
+            change(removeAnnotation(pages, pages[index].id, id), index, 'Delete annotation');
+          }} />
         <h3>Add text</h3>
         <p>Overlay text on the selected page (existing text editing is not yet supported).</p>
         <textarea aria-label="Text to add" value={text} onChange={event => setText(event.target.value)} placeholder="Enter text" />
-        <button className="primary" disabled={busy || !pages.length || !text.trim()} onClick={stamp}>Apply text</button>
-        <p>Text is placed at PDF coordinates (50, 700) using Helvetica 14pt.</p>
+        <TextStyleControls defaults={textStyle} selected={selectedText} annotations={pages[index]?.annotations ?? []}
+          disabled={busy} previewText={text} onDefaultsChange={setTextStyle} onSelect={setSelectedAnnotationId} onValidityChange={setTextStyleValid}
+          onApply={style => { if (selectedText) change(editPageAnnotation(pages, pages[index].id, selectedText.id, style), index, 'Style text'); }} />
+        <button className="primary" disabled={busy || !pages.length || !text.trim() || !textStyleValid} onClick={() => setPlacingText(value => !value)}>{placingText ? 'Cancel placement' : 'Place text'}</button>
+        <p>{placingText ? 'Click the page to place your text.' : 'Drag a blue text handle to move an overlay. Focus it and use arrow keys for precise movement.'}</p>
         <p className="muted">Undo: Ctrl+Z<br />Redo: Ctrl+Y or Ctrl+Shift+Z</p>
       </aside>
     </main>

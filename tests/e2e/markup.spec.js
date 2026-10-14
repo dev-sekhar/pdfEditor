@@ -3,8 +3,8 @@ import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 const { PDFDocument, StandardFonts, PDFArray, PDFName } = createRequire(import.meta.url)('pdf-lib');
 
-test('adding legacy text keeps comments and highlights editable and exports each annotation once', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.7.0'));
+test('adding positioned text keeps comments and highlights editable and exports each annotation once', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.8.0'));
   const source = await PDFDocument.create();
   source.addPage([600,800]).drawText('Highlight this sentence', { x: 30, y: 620, size: 18,
     font: await source.embedFont(StandardFonts.Helvetica) });
@@ -15,7 +15,8 @@ test('adding legacy text keeps comments and highlights editable and exports each
   await page.getByLabel('New comment').fill('Keep the review note');
   await page.getByRole('button', { name: 'Add page comment' }).click();
   await page.getByLabel('Text to add').fill('Added text');
-  await page.getByRole('button', { name: 'Apply text' }).click();
+  await page.getByRole('button', { name: 'Place text', exact: true }).click();
+  await page.getByLabel('Text overlay placement').click({position:{x:100,y:100}});
   await expect(page.locator('.markup-list li')).toHaveCount(1);
   await expect(page.getByLabel('Page comments')).toContainText('Keep the review note');
   const waiting = page.waitForEvent('download');
@@ -39,7 +40,7 @@ async function selectText(page) {
   });
 }
 test('selected text becomes visible native markup; undo/redo and delete preserve export', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.7.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.8.0'));
   const source = await PDFDocument.create(); const font = await source.embedFont(StandardFonts.Helvetica);
   source.addPage([400,500]).drawText('Highlight this sentence', { x: 30, y: 420, size: 18, font });
   await page.goto('/');

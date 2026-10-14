@@ -1,3 +1,4 @@
+import { drawTextOverlays } from './text-overlays';
 import { PDFDocument, degrees, StandardFonts } from 'pdf-lib';
 import { exportMarkup } from './markup';
 import { exportComments } from './comments';
@@ -11,6 +12,7 @@ export async function assemble(sources, pages, overlay) {
     out.addPage(page);
     exportMarkup(out, page, record.annotations);
     exportComments(out, page, record.annotations);
+    await drawTextOverlays(out, page, record.annotations);
   }
   if (overlay) {
     const font = await out.embedFont(StandardFonts.Helvetica);

@@ -1,4 +1,4 @@
-# PDF Studio v0.5
+# PDF Studio v0.8
 
 Local-first hybrid PDF editor. React + PDF.js viewer + pdf-lib editing engine, with Tauri 2 desktop wrapper.
 
@@ -9,10 +9,10 @@ Node 22+: `npm install`, `npm test`, `npm run dev`.
 Install Rust, Microsoft C++ Build Tools and WebView2 prerequisites per Tauri 2 documentation. Run `npm run desktop:dev` or `npx tauri build` on Windows.
 
 ## Implemented
-Open multiple PDFs, merge, reorder, rotate, delete, extract pages, overlay simple text, export PDF. All processing runs locally in the webview.
+Open and merge PDFs with visual page selection, reorder/rotate/delete/extract pages, zoom, undo/redo, save with safeguards, select PDF text, highlight/underline text, add comments, and place/style/move text overlays. Edit annotation content or colors and export PDFs. All processing runs locally in the webview.
 
 ## Roadmap (not yet implemented)
-True editing of existing PDF text and images; interactive positioning; undo/redo; split by range; password encryption and permissions; irreversible redaction; OCR; PDF/A; forms; certificate signatures; document compare; Office conversion; batch processing; accessibility tagging; Bates numbering; secure cloud sync. No Acrobat Pro parity claim yet.
+True editing of existing PDF text and images; split by range; password encryption and permissions; irreversible redaction (planned for 0.9); OCR; PDF/A; forms; certificate signatures; document compare; Office conversion; batch processing; accessibility tagging; Bates numbering; secure cloud sync. No Acrobat Pro parity claim yet.
 
 ## Security notes
 Password restrictions are not equivalent to cryptographic access control. Never represent a visual black rectangle as secure redaction. Do not upload documents to a remote service without explicit user consent. Validate untrusted PDFs and dependencies before production release.
@@ -104,6 +104,15 @@ Selected-page previews show the exact merge order. Pages checked later are appen
 ### Native close acceptance check
 
 The Windows close handler is covered with injected API tests; these do not operate a real window. On Windows, verify that a clean document closes normally, unsaved changes show Save/Discard/Cancel, cancelling Save As or a failed write keeps the app open, and closing during an operation does not discard the document. A second close request must preserve any existing unsaved-changes prompt. Save and Discard close only after their guarded continuation; a native close failure is shown in the editor.
+## Text overlay styles
+
+Choose Helvetica, Times, or Courier, a size from 6–144 points, and a text color before placing an overlay. The sidebar shows a live style sample. Select a text handle or use Style target to style an existing overlay, then click Apply text style; this is one undoable change and preserves its position. New text defaults are separate from selected-overlay styles. Standard PDF fonts support Latin characters; unsupported glyphs report an error instead of silently disappearing on export.
+
+## Annotation editing
+
+Use Edit annotations to select an annotation on the current page. Edit text overlay or comment content, change a highlight or underline color, or delete any annotation. Apply creates one undoable change and keeps its identity and position; Undo and Redo also restore deleted annotations.
+
+PDF Studio comments, highlights, and underlines remain editable after saving and reopening. Other imported annotations are preserved when saving. Text overlays are editable only in the current session: exported overlays become PDF page content on reopening. This feature does not edit existing PDF text.
 
 ## Reopening Studio annotations
 

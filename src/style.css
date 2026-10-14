@@ -97,3 +97,16 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .comment-markers { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .comment-marker { position: absolute; width: 24px; height: 24px; padding: 0; background: #ffe58a; border: 1px solid #9b7415; color: #543a00; pointer-events: auto; }
 .comment-marker.active { outline: 2px solid #2455c9; }
+.text-style-controls { margin: 12px 0; }
+.text-style-controls label { display: block; margin-top: 10px; font-size: 12px; }
+.text-style-controls select, .text-style-controls input { width: 100%; margin: 5px 0; padding: 6px; border: 1px solid #d6deea; border-radius: 6px; }
+.text-style-controls input[type="color"] { height: 38px; padding: 3px; }
+.text-style-preview { overflow: auto; max-height: 130px; padding: 8px; white-space: pre-wrap; background: #f3f6fb; border-radius: 6px; }
+.text-overlay-layer { position: absolute; inset: 0; touch-action: none; z-index: 2; }
+.text-overlay-layer.placing { cursor: crosshair; }
+.text-overlay-layer.placing { z-index: 4; }
+.annotation-inspector { margin: 14px 0; border-bottom: 1px solid #d6deea; padding-bottom: 12px; }
+.annotation-inspector label { display: block; margin: 8px 0; font-size: 12px; }
+.annotation-inspector select { width: 100%; min-width: 0; padding: 6px; }
+.text-overlay-handle { fill: #2455c9; stroke: white; stroke-width: 2px; cursor: move; }
+.text-overlay-handle:focus { outline: none; stroke: #f59e0b; stroke-width: 4px; }

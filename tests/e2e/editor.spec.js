@@ -4,7 +4,7 @@ const { PDFDocument, StandardFonts, PDFDict, PDFName } = createRequire(import.me
 import { readFile } from 'node:fs/promises';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.7.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.8.0'));
 });
 
 async function fixture(name, sizes) {
@@ -167,7 +167,8 @@ test('text overlays can be undone/redone and typing shortcuts do not undo the do
   original.addPage([600, 800]);
   await upload(page, { name: 'blank.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await original.save()) }, 1);
   await page.getByLabel('Text to add').fill('Undoable overlay');
-  await page.getByRole('button', { name: 'Apply text' }).click();
+  await page.getByRole('button', { name: 'Place text' }).click();
+  await page.getByLabel('Text overlay placement').click({ position: { x: 50, y: 100 } });
   await expect(page.getByRole('button', { name: 'Undo Add text' })).toBeEnabled();
   const fontCount = doc => doc.getPage(0).node.Resources().lookupMaybe(PDFName.of('Font'), PDFDict)?.keys().length || 0;
   expect(fontCount(await exported(page))).toBeGreaterThan(0);
