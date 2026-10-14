@@ -14,12 +14,15 @@ import UnsavedDialog from './UnsavedDialog';
 import { registerNativeCloseProtection } from './native-close';
 import MarkupControls from './MarkupControls';
 import { createMarkup } from './markup';
+import CommentsPanel, { CommentMarkers } from './CommentsPanel';
+import { createComment, addPageComment } from './comments';
 
 export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, createHistory);
   const { sources, pages, index, bytes } = history.present;
   const [text, setText] = useState('');
   const [selection, setSelection] = useState(null);
+  const [selectedComment, setSelectedComment] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingFiles, setPendingFiles] = useState(null);
@@ -113,6 +116,19 @@ export default function App() {
 
   function change(nextPages, nextIndex, label) {
     void perform(() => commit(sources, nextPages, nextIndex, label));
+  }
+
+  function addComment(content) {
+    void perform(async () => {
+      const document = await PDFDocument.load(bytes);
+      const box = document.getPage(index).getCropBox();
+      const count = (pages[index].annotations ?? []).filter(item => item.type === 'comment').length;
+      const x = box.x + Math.min(24, Math.max(0, box.width - 20));
+      const y = box.y + Math.max(0, box.height - 44 - (count % Math.max(1, Math.floor(box.height / 28))) * 28);
+      const comment = createComment(content, x, y);
+      await commit(sources, addPageComment(pages, pages[index].id, comment), index, 'Add comment');
+      setSelectedComment(comment.id);
+    });
   }
 
   function stamp() {
@@ -304,7 +320,10 @@ export default function App() {
       <section ref={viewport} aria-label="Selected page">
         {(error || preview.error) && <p className="error" role="alert">{error || preview.error}</p>}
         {bytes ? (preview.pdf ? <PageCanvas key={`${preview.id}-${index}`} pdf={preview.pdf} index={index}
-          zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} onSelection={setSelection} /> :
+
+          zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} onSelection={setSelection}
+          renderOverlay={pageViewport => <CommentMarkers viewport={pageViewport} annotations={pages[index]?.annotations}
+            selectedId={selectedComment} onSelect={setSelectedComment} />} /> :
           <p role="status">Loading document…</p>) : <div className="empty">
             <h1>Welcome to PDF Studio</h1>
             <p>Open PDFs to merge, rearrange, rotate, delete, extract, or add text.</p>
@@ -314,6 +333,8 @@ export default function App() {
       <aside className="text-sidebar">
         <MarkupControls selection={selection} annotations={pages[index]?.annotations} disabled={busy || !pages.length}
           onAdd={addMarkup} onRemove={removeMarkup} />
+        <CommentsPanel annotations={pages[index]?.annotations} disabled={busy || !pages.length}
+          onAdd={addComment} selectedId={selectedComment} onSelect={setSelectedComment} />
         <h3>Add text</h3>
         <p>Overlay text on the selected page (existing text editing is not yet supported).</p>
         <textarea aria-label="Text to add" value={text} onChange={event => setText(event.target.value)} placeholder="Enter text" />

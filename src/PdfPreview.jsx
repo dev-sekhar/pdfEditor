@@ -31,7 +31,7 @@ export function usePreviewDocument(bytes) {
 }
 
 export const PageCanvas = memo(function PageCanvas({ pdf, index, thumbnail = false, scrollRoot,
-  zoom = 100, viewportRef, onScale, onSelection, onViewport }) {
+  zoom = 100, viewportRef, onScale, onSelection, onViewport, renderOverlay }) {
   const canvas = useRef(null);
   const container = useRef(null);
   const textContainer = useRef(null);
@@ -140,6 +140,7 @@ export const PageCanvas = memo(function PageCanvas({ pdf, index, thumbnail = fal
         const rects = selectionRects(selection, textContainer.current, currentViewport.current);
         callbacks.current.onSelection?.(rects.length ? { rects, text: selection.toString() } : null);
       }} />}
+    {!thumbnail && status === 'ready' && currentViewport.current && renderOverlay?.(currentViewport.current)}
     {status !== 'ready' && <span className="preview-status" role={thumbnail ? undefined : 'status'}>
       {status === 'error' ? 'Preview unavailable' : 'Loading preview…'}
     </span>}

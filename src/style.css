@@ -91,3 +91,9 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .unsaved-dialog { max-width: min(480px, calc(100vw - 40px)); padding: 24px; border: 1px solid #d6deea; border-radius: 12px; color: #26364e; font: 14px system-ui; }
 .unsaved-dialog::backdrop { background: #16324f66; }
 .unsaved-dialog h2 { margin-top: 0; }
+.comment-list { padding: 0; list-style: none; }
+.comment-list span { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-weight: normal; margin-top: 6px; }
+.comment-list button { text-align: left; }
+.comment-markers { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.comment-marker { position: absolute; width: 24px; height: 24px; padding: 0; background: #ffe58a; border: 1px solid #9b7415; color: #543a00; pointer-events: auto; }
+.comment-marker.active { outline: 2px solid #2455c9; }
