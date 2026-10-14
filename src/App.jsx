@@ -99,7 +99,10 @@ export default function App() {
       }
       if (!incoming.length) return;
       const nextBytes = await commit(nextSources, insertPages(pages, incoming, offset), offset, pages.length ? 'Merge PDFs' : 'Open PDFs');
-      if (sources.length === 0 && files.length === 1) { setSavedBytes(nextBytes); documentName.current = files[0].name; }
+      if (sources.length === 0) {
+        setCurrentPath(null); documentName.current = files.length === 1 ? files[0].name : 'edited.pdf';
+        if (files.length === 1) setSavedBytes(nextBytes);
+      }
     });
   }
 

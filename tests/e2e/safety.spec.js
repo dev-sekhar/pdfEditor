@@ -86,3 +86,18 @@ test('save-and-continue succeeds only after an acknowledged native write', async
   await expect(page.locator('.document-status')).toHaveText('No unsaved changes');
   expect(await page.evaluate(() => window.saveCalls.length)).toBe(1);
 });
+
+test('opening after undo to empty forgets the previous save destination', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Open or merge PDFs').setInputFiles(await fixture('Original'));
+  await expect(page.locator('.page-count')).toHaveText('1 pages');
+  await page.keyboard.press('Control+s');
+  await expect.poll(() => page.evaluate(() => window.saveCalls?.length)).toBe(1);
+  await page.getByRole('button', { name: 'Undo Open PDFs', exact: true }).click();
+  await expect(page.locator('.page-count')).toHaveText('0 pages');
+  await page.getByLabel('Open or merge PDFs').setInputFiles(await fixture('Different'));
+  await expect(page.locator('.page-count')).toHaveText('1 pages');
+  await page.keyboard.press('Control+s');
+  await expect.poll(() => page.evaluate(() => window.saveCalls?.length)).toBe(2);
+  expect(await page.evaluate(() => window.saveCalls.at(-1))).toEqual({ name: 'Different.pdf', currentPath: null });
+});
