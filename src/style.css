@@ -60,3 +60,9 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .release-dialog ul { margin: 0 0 22px; padding-left: 22px; }
 .release-dialog li { margin-bottom: 10px; line-height: 1.5; }
 .release-dialog { font: 14px system-ui; }
+.merge-dialog { width: 440px; max-width: calc(100vw - 40px); padding: 24px; border: 1px solid #d6deea; border-radius: 14px; color: #26364e; font: 14px system-ui; box-shadow: 0 12px 60px #0003; }
+.merge-dialog::backdrop { background: #16324f66; }
+.merge-dialog h2 { margin-top: 0; }
+.merge-dialog label { display: block; margin: 16px 0 6px; }
+.merge-dialog select, .merge-dialog input { width: 100%; padding: 10px; border: 1px solid #d6deea; border-radius: 6px; font: inherit; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }

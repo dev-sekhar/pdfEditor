@@ -1,4 +1,4 @@
-# PDF Studio v0.3
+# PDF Studio v0.4
 
 Local-first hybrid PDF editor. React + PDF.js viewer + pdf-lib editing engine, with Tauri 2 desktop wrapper.
 
@@ -81,3 +81,9 @@ For every release, update the version in package.json, package-lock.json, src-ta
 6. Test overwriting an existing PDF with the native confirmation, and test extracting a single page through Save As.
 
 Browser tests and mocked Save As unit tests cover app behavior, cancellation, and write errors. The native dialog’s appearance, overwrite confirmation, and chosen-path access still require desktop acceptance checks.
+
+## Merge insertion choices (v0.4)
+
+With a document open, choose Open / merge and select additional PDFs. The Insert PDF pages dialog offers before/after the selected page, beginning, end, or a specific page number. Specific numbers mean insert before that existing page; N+1 inserts at the end of an N-page document. The default is End of document.
+
+All pages from the chosen files are inserted together in selected file order. The first inserted page becomes selected. The complete merge is one Undo/Redo step. Cancel and invalid imports leave the document and history unchanged. Opening files into an empty editor does not require choosing a position.

@@ -7,6 +7,8 @@ import { savePdf } from './save';
 import { stepZoom, reorderAt, ZOOM_LEVELS } from './view';
 import { APP_VERSION } from './releases';
 import ReleaseNotes from './ReleaseNotes';
+import MergeDialog from './MergeDialog';
+import { insertPages } from './merge';
 
 export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, createHistory);
@@ -14,6 +16,7 @@ export default function App() {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState(null);
   const [zoom, setZoom] = useState('fit-width');
   const [displayZoom, setDisplayZoom] = useState(100);
   const [saveStatus, setSaveStatus] = useState('');
@@ -68,10 +71,10 @@ export default function App() {
     } });
   }
 
-  function open(files) {
+  function open(files, offset = pages.length) {
     void perform(async () => {
       const nextSources = [...sources];
-      const nextPages = [...pages];
+      const incoming = [];
       for (const file of files) {
         if (!file.name.toLowerCase().endsWith('.pdf')) continue;
         const sourceBytes = new Uint8Array(await file.arrayBuffer());
@@ -79,11 +82,11 @@ export default function App() {
         const source = nextSources.length;
         nextSources.push({ name: file.name, bytes: sourceBytes });
         for (let page = 0; page < document.getPageCount(); page++) {
-          nextPages.push({ id: crypto.randomUUID(), source, index: page, rotation: 0 });
+          incoming.push({ id: crypto.randomUUID(), source, index: page, rotation: 0 });
         }
       }
-      if (nextPages.length === pages.length) return;
-      await commit(nextSources, nextPages, pages.length, pages.length ? 'Merge PDFs' : 'Open PDFs');
+      if (!incoming.length) return;
+      await commit(nextSources, insertPages(pages, incoming, offset), offset, pages.length ? 'Merge PDFs' : 'Open PDFs');
     });
   }
 
@@ -151,7 +154,7 @@ export default function App() {
         <label className={`button primary ${busy ? 'disabled' : ''}`}>
           ＋ Open / merge
           <input type="file" aria-label="Open or merge PDFs" accept=".pdf" multiple disabled={busy}
-            onChange={event => { open(Array.from(event.target.files)); event.target.value = ''; }} />
+            onChange={event => { const files = Array.from(event.target.files); event.target.value = ''; if (!files.length) return; if (pages.length) setPendingFiles(files); else open(files, 0); }} />
         </label>
         <button aria-label="Save As / Export PDF" disabled={busy || !pages.length} onClick={() => save()}>↓ Save As…</button>
       </div>
@@ -232,6 +235,8 @@ export default function App() {
         <p className="muted">Undo: Ctrl+Z<br />Redo: Ctrl+Y or Ctrl+Shift+Z</p>
       </aside>
     </main>
+    {pendingFiles && <MergeDialog files={pendingFiles} count={pages.length} selectedIndex={index}
+      onCancel={() => setPendingFiles(null)} onConfirm={offset => { const files = pendingFiles; setPendingFiles(null); open(files, offset); }} />}
     <footer><span>PDF Studio {APP_VERSION} · Page {pages.length ? index + 1 : 0} of {pages.length} · Up to 30 undo steps this session</span>
       <ReleaseNotes />
     </footer>

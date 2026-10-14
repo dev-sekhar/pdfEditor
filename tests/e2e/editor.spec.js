@@ -4,7 +4,7 @@ const { PDFDocument, StandardFonts, PDFDict, PDFName } = createRequire(import.me
 import { readFile } from 'node:fs/promises';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.3.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.4.0'));
 });
 
 async function fixture(name, sizes) {
@@ -17,7 +17,9 @@ async function fixture(name, sizes) {
 }
 
 async function upload(page, file, count) {
+  const merging = (await page.locator('.thumbnail').count()) > 0;
   await page.getByLabel('Open or merge PDFs').setInputFiles(file);
+  if (merging) await page.getByRole('button', { name: 'Insert PDFs', exact: true }).click();
   await expect(page.locator('.page-count')).toHaveText(`${count} pages`);
 }
 
@@ -95,6 +97,7 @@ test('import/merge and last-page deletion can be undone; invalid PDFs do not com
   await page.getByRole('button', { name: 'Redo Merge PDFs' }).click();
   await expect(page.locator('.page-count')).toHaveText('2 pages');
   await page.getByLabel('Open or merge PDFs').setInputFiles({ name: 'bad.pdf', mimeType: 'application/pdf', buffer: Buffer.from('invalid') });
+  await page.getByRole('button', { name: 'Insert PDFs', exact: true }).click();
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page.locator('.page-count')).toHaveText('2 pages');
   await expect(page.getByRole('button', { name: 'Undo Merge PDFs' })).toBeEnabled();
@@ -194,4 +197,51 @@ test('dragging inserts pages before or after targets and preserves undo/redo exp
   await thumbnailsReady(page, 3);
   await expect(page.locator('.page-preview canvas')).toBeVisible();
   await page.screenshot({ path: 'test-results/editor-v0.3.png', fullPage: true });
+});
+
+for (const [mode, order] of [
+  ['before', [200, 800, 1000, 400, 600]],
+  ['after', [200, 400, 800, 1000, 600]],
+  ['beginning', [800, 1000, 200, 400, 600]],
+  ['end', [200, 400, 600, 800, 1000]],
+  ['number', [200, 400, 800, 1000, 600]],
+]) {
+  test(`merge inserts PDFs at ${mode} and restores the original through undo`, async ({ page }) => {
+    await page.goto('/');
+    await upload(page, await fixture('Original', [[200, 300], [400, 500], [600, 700]]), 3);
+    await page.getByRole('button', { name: 'Select page 2' }).click();
+    await page.getByLabel('Open or merge PDFs').setInputFiles([
+      await fixture('Incoming B', [[800, 700]]), await fixture('Incoming C', [[1000, 700]]),
+    ]);
+    const dialog = page.getByRole('dialog', { name: 'Insert PDF pages' });
+    await expect(dialog).toBeVisible();
+    await page.getByLabel('Insert position').selectOption(mode);
+    if (mode === 'number') await page.getByLabel('Insert before page number').fill('3');
+    await page.getByRole('button', { name: 'Insert PDFs', exact: true }).click();
+    await expect(page.locator('.page-count')).toHaveText('5 pages');
+    expect((await exported(page)).getPages().map(p => p.getWidth())).toEqual(order);
+    await page.getByRole('button', { name: 'Undo Merge PDFs' }).click();
+    expect((await exported(page)).getPages().map(p => p.getWidth())).toEqual([200, 400, 600]);
+    await expect(page.getByRole('button', { name: 'Select page 2' })).toHaveAttribute('aria-current', 'page');
+    await page.getByRole('button', { name: 'Redo Merge PDFs' }).click();
+    expect((await exported(page)).getPages().map(p => p.getWidth())).toEqual(order);
+  });
+}
+
+test('cancelling insertion preserves redo and invalid page numbers keep the dialog open', async ({ page }) => {
+  await page.goto('/');
+  await upload(page, await fixture('Original', [[200, 300]]), 1);
+  await page.getByRole('button', { name: 'Rotate' }).click();
+  await expect(page.getByRole('button', { name: 'Undo Rotate page' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Undo Rotate page' }).click();
+  await page.getByLabel('Open or merge PDFs').setInputFiles(await fixture('Incoming', [[400, 500]]));
+  await page.getByLabel('Insert position').selectOption('number');
+  await page.getByLabel('Insert before page number').fill('3');
+  await page.getByRole('button', { name: 'Insert PDFs', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Insert PDF pages' })).toBeVisible();
+  await expect(page.locator('.page-count')).toHaveText('1 pages');
+  await page.screenshot({ path: 'test-results/merge-insertion.png' });
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Redo Rotate page' })).toBeEnabled();
+  expect((await exported(page)).getPageCount()).toBe(1);
 });

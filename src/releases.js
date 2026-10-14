@@ -3,6 +3,11 @@ import packageInfo from '../package.json';
 export const APP_VERSION = packageInfo.version;
 export const RELEASE_STORAGE_KEY = 'pdf-studio-release-seen';
 export const RELEASES = {
+  '0.4.0': [
+    'Choose where merged PDFs are inserted in your document.',
+    'Insert before or after the selected page, at either end, or before a page number.',
+    'Undo or redo the complete merge as one change.',
+  ],
   '0.3.0': [
     'Zoom in or out, or fit a page to your window.',
     'Drag page thumbnails to reorder your PDF.',
