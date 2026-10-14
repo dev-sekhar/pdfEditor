@@ -104,3 +104,7 @@ Selected-page previews show the exact merge order. Pages checked later are appen
 ### Native close acceptance check
 
 The Windows close handler is covered with injected API tests; these do not operate a real window. On Windows, verify that a clean document closes normally, unsaved changes show Save/Discard/Cancel, cancelling Save As or a failed write keeps the app open, and closing during an operation does not discard the document. A second close request must preserve any existing unsaved-changes prompt. Save and Discard close only after their guarded continuation; a native close failure is shown in the editor.
+
+## Reopening Studio annotations
+
+Saved PDF Studio comments, highlights and underlines reopen as editable page metadata, including Unicode notes, page markers and markup lists. Incoming selected pages retain their own annotations when merged. Studio-owned supported annotations are removed from the stored source and exported once from their metadata; unrelated and unsupported native annotations remain in the source. This import support identifies Studio ownership using the native author marker and stable annotation ID.

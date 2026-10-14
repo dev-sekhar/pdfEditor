@@ -16,6 +16,7 @@ import MarkupControls from './MarkupControls';
 import { createMarkup } from './markup';
 import CommentsPanel, { CommentMarkers } from './CommentsPanel';
 import { createComment, addPageComment } from './comments';
+import { importStudioAnnotations } from './annotation-import';
 
 export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, createHistory);
@@ -97,12 +98,13 @@ export default function App() {
         if (!file.name.toLowerCase().endsWith('.pdf')) continue;
         const selection = selections?.[fileIndex];
         const sourceBytes = selection?.bytes ?? new Uint8Array(await file.arrayBuffer());
-        const pageCount = selection?.count ?? (await PDFDocument.load(sourceBytes)).getPageCount();
+        const imported = await importStudioAnnotations(sourceBytes);
+        const pageCount = imported.count;
         const source = nextSources.length;
-        nextSources.push({ name: file.name, bytes: sourceBytes });
+        nextSources.push({ name: file.name, bytes: imported.bytes });
         const indices = selection?.indices ?? Array.from({ length: pageCount }, (_, i) => i);
         for (const page of indices) {
-          incoming.push({ id: crypto.randomUUID(), source, index: page, rotation: 0 });
+          incoming.push({ id: crypto.randomUUID(), source, index: page, rotation: 0, annotations: imported.annotations[page] });
         }
       }
       if (!incoming.length) return;
@@ -168,9 +170,9 @@ export default function App() {
   async function replaceDocument(file) {
     await perform(async () => {
       const sourceBytes = new Uint8Array(await file.arrayBuffer());
-      const loaded = await PDFDocument.load(sourceBytes);
-      const nextSources = [{ name: file.name, bytes: sourceBytes }];
-      const nextPages = Array.from({ length: loaded.getPageCount() }, (_, index) => ({ id: crypto.randomUUID(), source: 0, index, rotation: 0 }));
+      const imported = await importStudioAnnotations(sourceBytes);
+      const nextSources = [{ name: file.name, bytes: imported.bytes }];
+      const nextPages = Array.from({ length: imported.count }, (_, index) => ({ id: crypto.randomUUID(), source: 0, index, rotation: 0, annotations: imported.annotations[index] }));
       const nextBytes = await assemble(nextSources, nextPages);
       dispatch({ type: 'replace', document: { sources: nextSources, pages: nextPages, index: 0, bytes: nextBytes, label: 'Open document' } });
       setSavedBytes(nextBytes); setCurrentPath(null); documentName.current = file.name;
