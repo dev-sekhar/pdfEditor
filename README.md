@@ -117,3 +117,15 @@ PDF Studio comments, highlights, and underlines remain editable after saving and
 ## Reopening Studio annotations
 
 Saved PDF Studio comments, highlights and underlines reopen as editable page metadata, including Unicode notes, page markers and markup lists. Incoming selected pages retain their own annotations when merged. Studio-owned supported annotations are removed from the stored source and exported once from their metadata; unrelated and unsupported native annotations remain in the source. This import support identifies Studio ownership using the native author marker and stable annotation ID.
+
+## Secure redaction (0.9)
+
+Mark areas by dragging on a page, review the red hatched **PENDING** areas, then choose **Apply secure redaction**. Pending areas are not redacted yet: saving and extracting are blocked until you apply or clear them. Page navigation and zoom remain available while marking.
+
+Version 0.9 deliberately creates a fresh **image-only PDF of every page**, rendered locally at 216 DPI. Marked pixels are overwritten with opaque black in the rendered image before lossless PNG encoding. A new document contains only these page images; source PDF objects, selectable/OCR text, editable annotations, forms, links, attachments, optional layers, and original metadata are not copied. Visible content outside the areas is rasterized too. This can increase file size and reduce sharpness at high zoom; exported pages are no longer searchable or accessible as text. Visible information outside your selected areas remains visible, so review the entire result before sharing.
+
+Apply is an explicit irreversible step in the editor: success replaces the sources and clears Undo/Redo history and the previous save destination. The filename defaults to `*-redacted.pdf`; save a separate copy. Your original file on disk, previous downloads, backups, and copies are not erased. This feature removes selected content from the newly generated PDF; it does not promise secure erasure of files or computer memory.
+
+Cancelling confirmation or processing leaves the document and pending marks intact. Load, render, image encoding, validation, or resource-limit failures also leave the document intact. Every page is checked before rendering, and generated output is structurally verified to contain only opaque page images with no text fonts, annotations, forms, or attached documents. Redaction supports up to 200 pages, 100 MiB of input, 16 million pixels per page and 128 million pixels across the document, at 216 DPI. Exceeding a limit reports an error rather than producing a partial or lower-resolution file.
+
+Desktop acceptance: apply to a copy containing visible text and scanned text; save, close and reopen the result in another reader. Check every marked area, copying/searching text, rotated/cropped pages, and image extraction. Verify native Save As suggests the redacted filename and does not reuse the previously saved path. Check cancellation, errors, and closing while processing keep the original editor document intact.

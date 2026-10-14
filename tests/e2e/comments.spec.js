@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 const { PDFDocument, PDFArray, PDFDict, PDFName, PDFHexString } = createRequire(import.meta.url)('pdf-lib');
 
 test('page notes show markers, undo/redo, follow reordered pages, and export native comments', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.8.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
   await page.goto('/');
   const document = await PDFDocument.create(); document.addPage(); document.addPage();
   await page.getByLabel('Open or merge PDFs').setInputFiles({ name: 'notes.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await document.save()) });

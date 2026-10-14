@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 const { PDFDocument, StandardFonts } = createRequire(import.meta.url)('pdf-lib');
 
 test('PDF text remains selectable at changed zoom and rotation; thumbnails have no text layer', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.8.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   doc.addPage([400, 500]).drawText('Selectable PDF text', { x: 30, y: 420, size: 18, font });

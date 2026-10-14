@@ -37,7 +37,7 @@ jobs:
         run: npm test
       - name: Install cloud browser for UI tests
         run: npx playwright install chromium
-      - name: Test thumbnails and undo/redo in browser
+      - name: Test editor and secure redaction in browser
         run: npm run test:e2e
       - name: Package Windows installers
         # Tauri runs npm run build via beforeBuildCommand.

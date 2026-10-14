@@ -11,7 +11,7 @@ async function exportedAnnotations(page) {
   return document.getPage(0).node.lookup(PDFName.of('Annots'), PDFArray).asArray().map(ref => document.context.lookup(ref));
 }
 test('generic inspector edits native comments and highlight colors alongside positioned text', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen','0.8.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen','0.9.0'));
   const source = await PDFDocument.create(); const font = await source.embedFont(StandardFonts.Helvetica);
   source.addPage([600,800]).drawText('Selectable sentence', { x: 30, y: 720, size: 18, font });
   await page.goto('/');

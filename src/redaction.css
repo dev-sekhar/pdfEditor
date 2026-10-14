@@ -1,0 +1,25 @@
+.redaction-layer { position: absolute; inset: 0; z-index: 5; overflow: visible; }
+.redaction-layer.marking { z-index: 10; cursor: crosshair; touch-action: none; }
+.redaction-layer.marking:focus-visible { outline: 2px solid #2455c9; outline-offset: 2px; }
+.pending-redaction-mark { stroke: #b91c1c; stroke-width: 2; vector-effect: non-scaling-stroke; fill-opacity: .22; }
+.pending-redaction-mark.drawing { stroke-dasharray: 5 3; }
+.pending-redaction-label { fill: #b91c1c; stroke: white; stroke-width: 3px; paint-order: stroke; font: bold 11px system-ui; }
+.redaction-remove-handle { cursor: pointer; }
+.redaction-remove-handle circle { fill: white; stroke: #b91c1c; stroke-width: 2; }
+.redaction-remove-handle path { stroke: #b91c1c; stroke-width: 2; }
+.redaction-remove-handle:focus { outline: none; }
+.redaction-remove-handle:focus circle { stroke: #2455c9; stroke-width: 4; }
+.redaction-controls { border-top: 1px solid #d6deea; margin-top: 14px; padding-top: 14px; }
+.redaction-controls p { line-height: 1.4; }
+.redaction-count { font-size: 12px; font-weight: 600; }
+.redaction-mark-list { list-style: none; padding: 0; margin: 8px 0; }
+.redaction-mark-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.redaction-mark-list button { width: auto; margin: 0; padding: 5px 8px; }
+.redaction-output-note { font-size: 12px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 8px; }
+.redaction-dialog { width: 620px; max-width: calc(100vw - 40px); max-height: calc(100vh - 40px); overflow-y: auto; padding: 24px; border: 1px solid #d6deea; border-radius: 14px; color: #26364e; font: 14px system-ui; box-shadow: 0 12px 60px #0003; }
+.redaction-dialog::backdrop { background: #16324f66; }
+.redaction-dialog h2 { margin: 0 0 16px; font-size: 20px; }
+.redaction-dialog p, .redaction-dialog li { line-height: 1.5; }
+.redaction-dialog ul { padding-left: 22px; }
+.redaction-dialog li { margin-bottom: 9px; }
+.redaction-dialog .dialog-actions { flex-wrap: wrap; }

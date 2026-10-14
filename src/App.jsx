@@ -22,6 +22,10 @@ import TextStyleControls from './TextStyleControls';
 import AnnotationInspector from './AnnotationInspector';
 import { updateAnnotation, removeAnnotation } from './annotation-editing';
 import { importStudioAnnotations } from './annotation-import';
+import RedactionLayer from './RedactionLayer';
+import RedactionControls from './RedactionControls';
+import RedactionDialog from './RedactionDialog';
+import { redactToImagePdf } from './redaction';
 
 export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, createHistory);
@@ -42,7 +46,15 @@ export default function App() {
   const [pendingAction, setPendingAction] = useState(null);
   const documentName = useRef('edited.pdf');
   const live = useRef({});
-  const dirty = bytes !== savedBytes;
+  const [redactionMarks, setRedactionMarks] = useState([]);
+  const [markingRedactions, setMarkingRedactions] = useState(false);
+  const [redactionDialog, setRedactionDialog] = useState(false);
+  const [redactionProgress, setRedactionProgress] = useState('');
+  const redactionController = useRef(null);
+  const redactionLocked = useRef(false);
+  redactionLocked.current = markingRedactions || redactionMarks.length > 0 || redactionDialog;
+  const editLocked = busy || redactionLocked.current;
+  const dirty = bytes !== savedBytes || redactionMarks.length > 0;
   const [zoom, setZoom] = useState('fit-width');
   const [displayZoom, setDisplayZoom] = useState(100);
   const [saveStatus, setSaveStatus] = useState('');
@@ -61,7 +73,7 @@ export default function App() {
   useEffect(() => { if (!textStyleValid) setPlacingText(false); }, [textStyleValid]);
 
   const navigateHistory = useCallback(type => {
-    if (busyRef.current) return;
+    if (busyRef.current || redactionLocked.current) return;
     dispatch({ type });
     setError('');
     setSaveStatus('');
@@ -156,6 +168,7 @@ export default function App() {
 
   async function save(extract = false, saveAs = true) {
     return perform(async () => {
+      if (redactionMarks.length) throw new Error('Apply or clear pending redaction areas before saving.');
       const output = extract ? await assemble(sources, [pages[index]]) : bytes;
       if (!output) throw new Error('There are no pages to save. Undo the deletion or discard changes.');
       const result = await savePdf(output, extract ? 'page.pdf' : documentName.current, !extract && !saveAs ? currentPath : null);
@@ -189,11 +202,11 @@ export default function App() {
       const nextBytes = await assemble(nextSources, nextPages);
       dispatch({ type: 'replace', document: { sources: nextSources, pages: nextPages, index: 0, bytes: nextBytes, label: 'Open document' } });
       setSavedBytes(nextBytes); setCurrentPath(null); documentName.current = file.name;
-      setText(''); setPendingFiles(null);
+      setText(''); setPendingFiles(null); setRedactionMarks([]); setMarkingRedactions(false);
     });
   }
 
-  live.current = { dirty, pendingAction: Boolean(pendingAction), requestAction, save };
+  live.current = { dirty, pendingAction: Boolean(pendingAction) || redactionDialog, requestAction, save };
   useEffect(() => {
     const beforeUnload = event => { if (live.current.dirty || busyRef.current) { event.preventDefault(); event.returnValue = ''; } };
     const shortcut = event => {
@@ -222,6 +235,54 @@ export default function App() {
     change(pages.map((page, i) => i === index ? { ...page, annotations: (page.annotations || []).filter(item => item.id !== id) } : page), index, 'Delete markup');
   }
 
+  function addRedaction(mark) {
+    if (busyRef.current || !pages[index]) return;
+    setRedactionMarks(previous => [...previous, { ...mark, pageId: pages[index].id }]);
+    setSaveStatus('Pending redaction areas must be applied or cleared before saving.');
+  }
+
+  function clearRedactions() {
+    if (busyRef.current) return;
+    setRedactionMarks([]); setMarkingRedactions(false); setSaveStatus('');
+  }
+
+  async function applyRedactions() {
+    if (!redactionMarks.length) return;
+    await perform(async () => {
+      const controller = new AbortController();
+      redactionController.current = controller;
+      setRedactionProgress('Preparing secure redaction…');
+      try {
+        const marks = redactionMarks.map(mark => ({
+          page: pages.findIndex(page => page.id === mark.pageId), rect: mark.rect,
+        }));
+        const nextBytes = await redactToImagePdf(bytes, marks, {
+          signal: controller.signal,
+          onProgress: progress => setRedactionProgress(`Processing page ${progress.completed} of ${progress.total}…`),
+        });
+        if (controller.signal.aborted) return;
+        const nextPages = pages.map((page, pageIndex) => ({
+          id: crypto.randomUUID(), source: 0, index: pageIndex, rotation: 0, annotations: [],
+        }));
+        // A replacement, never a history commit: the editor retains no undo
+        // snapshot or source graph that could restore the removed information.
+        dispatch({ type: 'replace', document: {
+          sources: [{ name: 'Redacted document', bytes: nextBytes }], pages: nextPages,
+          index, bytes: nextBytes, label: 'Apply secure redaction',
+        } });
+        setSavedBytes(null); setCurrentPath(null);
+        documentName.current = documentName.current.replace(/\.pdf$/i, '').replace(/-redacted$/, '') + '-redacted.pdf';
+        setRedactionMarks([]); setMarkingRedactions(false); setRedactionDialog(false);
+        setPendingAction(null); setPendingFiles(null); setSelection(null);
+        setSelectedAnnotationId(null); setPlacingText(false); setText('');
+        setSaveStatus('Redactions applied. Undo history cleared. Save the image-only copy as a new file.');
+      } catch (cause) {
+        if (controller.signal.aborted) setRedactionProgress('Redaction cancelled. Your document and marks are unchanged.');
+        else throw cause;
+      } finally { redactionController.current = null; }
+    });
+  }
+
   function finishDrag() {
     dragId.current = null;
     setDragging(null);
@@ -234,7 +295,7 @@ export default function App() {
   }
 
   function dragOver(event, targetId) {
-    if (!dragId.current || busyRef.current) return;
+    if (!dragId.current || busyRef.current || redactionLocked.current) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     setDropTarget({ id: targetId, position: dropPosition(event) });
@@ -248,7 +309,7 @@ export default function App() {
     const sourceId = dragId.current;
     const position = dropPosition(event);
     finishDrag();
-    if (!sourceId || busyRef.current) return;
+    if (!sourceId || busyRef.current || redactionLocked.current) return;
     const nextPages = reorderAt(pages, sourceId, targetId, position);
     if (nextPages === pages) return;
     change(nextPages, nextPages.findIndex(page => page.id === sourceId), 'Move page');
@@ -265,30 +326,30 @@ export default function App() {
           <input type="file" aria-label="Open new document" accept=".pdf" disabled={busy}
             onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) requestAction(() => replaceDocument(file)); }} />
         </label>
-        <label className={`button primary ${busy ? 'disabled' : ''}`}>
+        <label className={`button primary ${editLocked ? 'disabled' : ''}`}>
           ＋ Open / merge
-          <input type="file" aria-label="Open or merge PDFs" accept=".pdf" multiple disabled={busy}
+          <input type="file" aria-label="Open or merge PDFs" accept=".pdf" multiple disabled={editLocked}
             onChange={event => { const files = Array.from(event.target.files); event.target.value = ''; if (!files.length) return; if (pages.length) setPendingFiles(files); else open(files, 0); }} />
         </label>
-        <button aria-label="Save PDF" disabled={busy || !pages.length} onClick={() => save(false, false)}>Save</button>
-        <button aria-label="Save As / Export PDF" disabled={busy || !pages.length} onClick={() => save()}>↓ Save As…</button>
+        <button aria-label="Save PDF" disabled={editLocked || !pages.length} onClick={() => save(false, false)}>Save</button>
+        <button aria-label="Save As / Export PDF" disabled={editLocked || !pages.length} onClick={() => save()}>↓ Save As…</button>
       </div>
     </header>
     <nav aria-label="Page editing tools">
-      <button aria-label={undoLabel} title={`${undoLabel} (Ctrl+Z)`} disabled={busy || !canUndo}
+      <button aria-label={undoLabel} title={`${undoLabel} (Ctrl+Z)`} disabled={editLocked || !canUndo}
         onClick={() => navigateHistory('undo')}>↶ Undo</button>
-      <button aria-label={redoLabel} title={`${redoLabel} (Ctrl+Y or Ctrl+Shift+Z)`} disabled={busy || !canRedo}
+      <button aria-label={redoLabel} title={`${redoLabel} (Ctrl+Y or Ctrl+Shift+Z)`} disabled={editLocked || !canRedo}
         onClick={() => navigateHistory('redo')}>↷ Redo</button>
       <span className="tool-divider" />
-      <button disabled={busy || !pages.length || index === 0}
+      <button disabled={editLocked || !pages.length || index === 0}
         onClick={() => change(move(pages, index, index - 1), index - 1, 'Move page')}>↑ Move</button>
-      <button disabled={busy || !pages.length || index === pages.length - 1}
+      <button disabled={editLocked || !pages.length || index === pages.length - 1}
         onClick={() => change(move(pages, index, index + 1), index + 1, 'Move page')}>↓ Move</button>
-      <button disabled={busy || !pages.length} onClick={() => change(pages.map((page, i) =>
+      <button disabled={editLocked || !pages.length} onClick={() => change(pages.map((page, i) =>
         i === index ? { ...page, rotation: (page.rotation + 90) % 360 } : page), index, 'Rotate page')}>↻ Rotate</button>
-      <button disabled={busy || !pages.length} onClick={() => change(pages.filter((_, i) => i !== index),
+      <button disabled={editLocked || !pages.length} onClick={() => change(pages.filter((_, i) => i !== index),
         Math.max(0, index - 1), 'Delete page')}>✕ Delete</button>
-      <button disabled={busy || !pages.length} onClick={() => save(true)}>⇩ Extract</button>
+      <button disabled={editLocked || !pages.length} onClick={() => save(true)}>⇩ Extract</button>
       <span className="page-count" role="status">{busy ? 'Updating…' : `${pages.length} pages`}</span>
     </nav>
     <div className="view-toolbar" role="group" aria-label="Zoom controls">
@@ -312,9 +373,9 @@ export default function App() {
         <p className="muted">Drag a thumbnail to move a page.</p>
         {pages.map((page, i) => <button key={page.id} className={`thumbnail ${index === i ? 'active' : ''} ${dragging === page.id ? 'dragging' : ''} ${dropTarget?.id === page.id ? `drop-${dropTarget.position}` : ''}`}
           disabled={busy} aria-label={`Select page ${i + 1}`} aria-current={index === i ? 'page' : undefined}
-          draggable={!busy} title={`Page ${i + 1}: drag to reorder, or use the Move buttons`}
+          draggable={!editLocked} title={`Page ${i + 1}: drag to reorder, or use the Move buttons`}
           onDragStart={event => {
-            if (busyRef.current) { event.preventDefault(); return; }
+            if (busyRef.current || redactionLocked.current) { event.preventDefault(); return; }
             dragId.current = page.id;
             setDragging(page.id);
             dispatch({ type: 'select', index: i });
@@ -337,10 +398,13 @@ export default function App() {
         {bytes ? (preview.pdf ? <PageCanvas key={`${preview.id}-${index}`} pdf={preview.pdf} index={index}
           zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} onSelection={setSelection}
           renderOverlay={pageViewport => <>
-            <TextOverlayLayer viewport={pageViewport} annotations={pages[index]?.annotations} placing={placingText} disabled={busy}
+            <TextOverlayLayer viewport={pageViewport} annotations={pages[index]?.annotations} placing={placingText} disabled={editLocked}
               onPlace={placeText} onSelect={setSelectedAnnotationId} onMove={(id, x, y) => change(editPageAnnotation(pages, pages[index].id, id, { x, y }), index, 'Move text')} />
             <CommentMarkers viewport={pageViewport} annotations={pages[index]?.annotations}
               selectedId={selectedAnnotationId} onSelect={setSelectedAnnotationId} />
+            <RedactionLayer viewport={pageViewport} marks={redactionMarks.filter(mark => mark.pageId === pages[index]?.id)}
+              marking={markingRedactions} disabled={busy} onAdd={addRedaction}
+              onRemove={id => setRedactionMarks(previous => previous.filter(mark => mark.id !== id))} />
           </>} /> :
           <p role="status">Loading document…</p>) : <div className="empty">
             <h1>Welcome to PDF Studio</h1>
@@ -349,11 +413,16 @@ export default function App() {
           </div>}
       </section>
       <aside className="text-sidebar">
-        <MarkupControls selection={selection} annotations={pages[index]?.annotations} disabled={busy || !pages.length}
+        <RedactionControls marking={markingRedactions} disabled={busy || !pages.length}
+          marks={redactionMarks.filter(mark => mark.pageId === pages[index]?.id)} totalMarks={redactionMarks.length}
+          onMarkingChange={value => { setMarkingRedactions(value); if (value) setPlacingText(false); }}
+          onRemove={id => setRedactionMarks(previous => previous.filter(mark => mark.id !== id))}
+          onClear={clearRedactions} onApply={() => { setError(''); setRedactionProgress(''); setRedactionDialog(true); }} />
+        <MarkupControls selection={selection} annotations={pages[index]?.annotations} disabled={editLocked || !pages.length}
           onAdd={addMarkup} onRemove={removeMarkup} />
-        <CommentsPanel annotations={pages[index]?.annotations} disabled={busy || !pages.length}
+        <CommentsPanel key={pages[index]?.id} annotations={pages[index]?.annotations} disabled={editLocked || !pages.length}
           onAdd={addComment} selectedId={selectedAnnotationId} onSelect={setSelectedAnnotationId} />
-        <AnnotationInspector annotations={pages[index]?.annotations ?? []} selectedId={selectedAnnotationId} disabled={busy}
+        <AnnotationInspector annotations={pages[index]?.annotations ?? []} selectedId={selectedAnnotationId} disabled={editLocked}
           onSelect={setSelectedAnnotationId} onApply={(id, draft) => {
             void perform(async () => {
               const nextPages = updateAnnotation(pages, pages[index].id, id, draft);
@@ -366,9 +435,9 @@ export default function App() {
         <p>Overlay text on the selected page (existing text editing is not yet supported).</p>
         <textarea aria-label="Text to add" value={text} onChange={event => setText(event.target.value)} placeholder="Enter text" />
         <TextStyleControls defaults={textStyle} selected={selectedText} annotations={pages[index]?.annotations ?? []}
-          disabled={busy} previewText={text} onDefaultsChange={setTextStyle} onSelect={setSelectedAnnotationId} onValidityChange={setTextStyleValid}
+          disabled={editLocked} previewText={text} onDefaultsChange={setTextStyle} onSelect={setSelectedAnnotationId} onValidityChange={setTextStyleValid}
           onApply={style => { if (selectedText) change(editPageAnnotation(pages, pages[index].id, selectedText.id, style), index, 'Style text'); }} />
-        <button className="primary" disabled={busy || !pages.length || !text.trim() || !textStyleValid} onClick={() => setPlacingText(value => !value)}>{placingText ? 'Cancel placement' : 'Place text'}</button>
+        <button className="primary" disabled={editLocked || !pages.length || !text.trim() || !textStyleValid} onClick={() => setPlacingText(value => !value)}>{placingText ? 'Cancel placement' : 'Place text'}</button>
         <p>{placingText ? 'Click the page to place your text.' : 'Drag a blue text handle to move an overlay. Focus it and use arrow keys for precise movement.'}</p>
         <p className="muted">Undo: Ctrl+Z<br />Redo: Ctrl+Y or Ctrl+Shift+Z</p>
       </aside>
@@ -376,8 +445,11 @@ export default function App() {
     {pendingFiles && <MergeDialog files={pendingFiles} count={pages.length} selectedIndex={index}
       onCancel={() => setPendingFiles(null)} onConfirm={(offset, selections) => { const files = pendingFiles; setPendingFiles(null); open(files, offset, selections); }} />}
     {pendingAction && <UnsavedDialog saving={busy} error={error} status={saveStatus} browser={!isTauri()} onCancel={() => setPendingAction(null)}
-      onDiscard={() => { const action = pendingAction; setPendingAction(null); void continueAction(action); }}
+      onDiscard={() => { const action = pendingAction; setPendingAction(null); clearRedactions(); void continueAction(action); }}
       onSave={async () => { if (await save(false, false)) { const action = pendingAction; setPendingAction(null); void continueAction(action); } }} />}
+    {redactionDialog && <RedactionDialog count={redactionMarks.length} pages={pages.length} busy={busy}
+      error={error} progress={redactionProgress} onApply={applyRedactions}
+      onCancel={() => { if (busy) redactionController.current?.abort(); else setRedactionDialog(false); }} />}
     <footer><span>PDF Studio {APP_VERSION} · Page {pages.length ? index + 1 : 0} of {pages.length} · Up to 30 undo steps this session</span>
       <ReleaseNotes />
     </footer>
