@@ -3,53 +3,55 @@ name: Build PDF Studio for Windows
 on:
   workflow_dispatch:
   push:
-    branches:
-      - dev
+    branches: [dev]
 
 permissions:
   contents: read
 
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   windows:
-    runs-on: windows-latest
+    if: github.ref == 'refs/heads/dev'
+    runs-on: windows-2022
     timeout-minutes: 60
-
     steps:
       - name: Check out dev
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
-
       - name: Cache Rust compilation
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-
       - name: Install JavaScript dependencies
         run: npm ci
-
-      - name: Run unit tests
+      - name: Run PDF operation tests
         run: npm test
-
-      - name: Build web frontend
-        run: npm run build
-
       - name: Package Windows installers
+        # Tauri runs npm run build via beforeBuildCommand.
         run: npx tauri build --bundles nsis,msi
-
+      - name: Verify both installer formats
+        shell: pwsh
+        run: |
+          $exe = @(Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe)
+          $msi = @(Get-ChildItem src-tauri/target/release/bundle/msi/*.msi)
+          if ($exe.Count -eq 0 -or $msi.Count -eq 0) {
+            throw 'Both an EXE setup installer and an MSI are required.'
+          }
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
-          name: PDF-Studio-Windows
+          name: PDF-Studio-Windows-${{ github.sha }}
           path: |
-            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*-setup.exe
             src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: error
           retention-days: 14
