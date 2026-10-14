@@ -3,6 +3,12 @@ import packageInfo from '../package.json';
 export const APP_VERSION = packageInfo.version;
 export const RELEASE_STORAGE_KEY = 'pdf-studio-release-seen';
 export const RELEASES = {
+  '0.6.0': [
+    'Select incoming PDF pages visually, with synchronized checkboxes and ranges.',
+    'Save with Ctrl+S or choose a new file with Ctrl+Shift+S.',
+    'Open a new document with Save, Discard, or Cancel safeguards.',
+    'See unsaved changes and protect them when closing the app.',
+  ],
   '0.5.0': [
     'Choose individual pages or page ranges from each incoming PDF.',
     'Preview selected pages and inspect them before merging.',

@@ -9,7 +9,7 @@ async function fixture(name, width = 300) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.5.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.6.0'));
   // Mock only the native save boundary; no real user file is written.
   await page.route('**/src/save.js*', route => route.fulfill({ contentType: 'application/javascript', body: `
     export async function savePdf(bytes, name, currentPath = null) {
