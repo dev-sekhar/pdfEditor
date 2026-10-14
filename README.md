@@ -1,4 +1,4 @@
-# PDF Studio v0.4
+# PDF Studio v0.5
 
 Local-first hybrid PDF editor. React + PDF.js viewer + pdf-lib editing engine, with Tauri 2 desktop wrapper.
 
@@ -87,3 +87,9 @@ Browser tests and mocked Save As unit tests cover app behavior, cancellation, an
 With a document open, choose Open / merge and select additional PDFs. The Insert PDF pages dialog offers before/after the selected page, beginning, end, or a specific page number. Specific numbers mean insert before that existing page; N+1 inserts at the end of an N-page document. The default is End of document.
 
 All pages from the chosen files are inserted together in selected file order. The first inserted page becomes selected. The complete merge is one Undo/Redo step. Cancel and invalid imports leave the document and history unchanged. Opening files into an empty editor does not require choosing a position.
+
+## Incoming page ranges (v0.5)
+
+When merging into an open document, each incoming PDF has a page-selection field and its page count. Leave the field blank (or enter all) to include every page, or use one-based numbers and ascending ranges such as 1, 3-5, 8. Pages follow the order entered; duplicates are included once. Selections are independent for each file, and files retain their selected order.
+
+Invalid, reversed, or out-of-bounds ranges keep the dialog open without changing the current document. Correct the range or Cancel. Selected pages retain the existing insertion options and are one Undo/Redo step. Corrupt/password-protected PDFs report an import error before merging. Cancel while reading files leaves the current document unchanged.

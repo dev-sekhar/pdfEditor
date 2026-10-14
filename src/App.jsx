@@ -71,17 +71,19 @@ export default function App() {
     } });
   }
 
-  function open(files, offset = pages.length) {
+  function open(files, offset = pages.length, selections = null) {
     void perform(async () => {
       const nextSources = [...sources];
       const incoming = [];
-      for (const file of files) {
+      for (const [fileIndex, file] of files.entries()) {
         if (!file.name.toLowerCase().endsWith('.pdf')) continue;
-        const sourceBytes = new Uint8Array(await file.arrayBuffer());
-        const document = await PDFDocument.load(sourceBytes);
+        const selection = selections?.[fileIndex];
+        const sourceBytes = selection?.bytes ?? new Uint8Array(await file.arrayBuffer());
+        const pageCount = selection?.count ?? (await PDFDocument.load(sourceBytes)).getPageCount();
         const source = nextSources.length;
         nextSources.push({ name: file.name, bytes: sourceBytes });
-        for (let page = 0; page < document.getPageCount(); page++) {
+        const indices = selection?.indices ?? Array.from({ length: pageCount }, (_, i) => i);
+        for (const page of indices) {
           incoming.push({ id: crypto.randomUUID(), source, index: page, rotation: 0 });
         }
       }
@@ -236,7 +238,7 @@ export default function App() {
       </aside>
     </main>
     {pendingFiles && <MergeDialog files={pendingFiles} count={pages.length} selectedIndex={index}
-      onCancel={() => setPendingFiles(null)} onConfirm={offset => { const files = pendingFiles; setPendingFiles(null); open(files, offset); }} />}
+      onCancel={() => setPendingFiles(null)} onConfirm={(offset, selections) => { const files = pendingFiles; setPendingFiles(null); open(files, offset, selections); }} />}
     <footer><span>PDF Studio {APP_VERSION} · Page {pages.length ? index + 1 : 0} of {pages.length} · Up to 30 undo steps this session</span>
       <ReleaseNotes />
     </footer>

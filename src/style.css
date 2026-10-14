@@ -66,3 +66,6 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .merge-dialog label { display: block; margin: 16px 0 6px; }
 .merge-dialog select, .merge-dialog input { width: 100%; padding: 10px; border: 1px solid #d6deea; border-radius: 6px; font: inherit; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+.merge-dialog { max-height: calc(100vh - 40px); overflow-y: auto; }
+.incoming-pages { padding: 8px 0; border-bottom: 1px solid #d6deea; }
+.incoming-pages label { overflow-wrap: anywhere; }

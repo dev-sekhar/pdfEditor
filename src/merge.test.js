@@ -30,3 +30,18 @@ it('exports incoming pages together at every offset without mutating original pa
   expect(incoming).toHaveLength(2);
   expect(insertPages([], incoming, 0)).toEqual(incoming);
 });
+
+it('parses individual pages and ranges in entered order, removing duplicates', async () => {
+  const { parsePageSelection } = await import('./merge');
+  expect(parsePageSelection('3, 1-2, 2, 5', 5)).toEqual([2, 0, 1, 4]);
+  expect(parsePageSelection('', 3)).toEqual([0, 1, 2]);
+  expect(parsePageSelection(' all ', 2)).toEqual([0, 1]);
+  expect(parsePageSelection(' 1 , 3 - 4 ', 4)).toEqual([0, 2, 3]);
+});
+it('rejects missing, reversed, malformed and out-of-bounds page selections', async () => {
+  const { parsePageSelection } = await import('./merge');
+  for (const value of ['0', '6', '3-2', '1,', '-1', '1.5', '1--2', 'one', '1-6']) {
+    expect(() => parsePageSelection(value, 5)).toThrow();
+  }
+  expect(() => parsePageSelection('', 0)).toThrow();
+});
