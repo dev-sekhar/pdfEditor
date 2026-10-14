@@ -3,6 +3,31 @@ import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 const { PDFDocument, StandardFonts, PDFArray, PDFName } = createRequire(import.meta.url)('pdf-lib');
 
+test('adding legacy text keeps comments and highlights editable and exports each annotation once', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.7.0'));
+  const source = await PDFDocument.create();
+  source.addPage([600,800]).drawText('Highlight this sentence', { x: 30, y: 620, size: 18,
+    font: await source.embedFont(StandardFonts.Helvetica) });
+  await page.goto('/');
+  await page.getByLabel('Open or merge PDFs').setInputFiles({ name: 'annotations.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await source.save()) });
+  await selectText(page);
+  await page.getByRole('button', { name: 'Highlight selection', exact: true }).click();
+  await page.getByLabel('New comment').fill('Keep the review note');
+  await page.getByRole('button', { name: 'Add page comment' }).click();
+  await page.getByLabel('Text to add').fill('Added text');
+  await page.getByRole('button', { name: 'Apply text' }).click();
+  await expect(page.locator('.markup-list li')).toHaveCount(1);
+  await expect(page.getByLabel('Page comments')).toContainText('Keep the review note');
+  const waiting = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Save As / Export PDF' }).click();
+  const download = await waiting;
+  const output = await PDFDocument.load(await readFile(await download.path()));
+  expect(output.getPage(0).node.lookup(PDFName.of('Annots'), PDFArray).size()).toBe(3);
+  await page.getByRole('button', { name: 'Delete markup 1' }).click();
+  await expect(page.locator('.markup-list li')).toHaveCount(0);
+  await expect(page.getByLabel('Page comments')).toContainText('Keep the review note');
+});
+
 async function selectText(page) {
   const layer = page.getByLabel('Selectable page text');
   await expect(layer).toBeVisible();

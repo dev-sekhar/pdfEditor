@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import { assemble, move } from './pdf';
+import { assemble, move, stampDocument } from './pdf';
 import { createHistory, historyReducer, historyShortcut } from './history';
 import { PageCanvas, usePreviewDocument } from './PdfPreview';
 import { savePdf } from './save';
@@ -133,9 +133,8 @@ export default function App() {
 
   function stamp() {
     void perform(async () => {
-      const edited = await assemble(sources, pages, { page: index, text, x: 50, y: 700, size: 14 });
-      const nextPages = pages.map((page, i) => ({ ...page, source: 0, index: i, rotation: 0, annotations: [] }));
-      await commit([{ name: 'Edited document', bytes: edited }], nextPages, index, 'Add text');
+      const rebased = await stampDocument(sources, pages, { page: index, text, x: 50, y: 700, size: 14 });
+      await commit(rebased.sources, rebased.pages, index, 'Add text');
       setText('');
     });
   }

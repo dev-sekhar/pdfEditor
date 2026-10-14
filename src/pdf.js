@@ -18,6 +18,15 @@ export async function assemble(sources, pages, overlay) {
   }
   return out.save();
 }
+// Bake only the legacy text overlay. Keep annotation metadata editable and
+// attach it once when the resulting source is assembled into the document.
+export async function stampDocument(sources, pages, overlay) {
+  const bytes = await assemble(sources, pages.map(page => ({ ...page, annotations: [] })), overlay);
+  return {
+    sources: [{ name: 'Edited document', bytes }],
+    pages: pages.map((page, index) => ({ ...page, source: 0, index, rotation: 0 })),
+  };
+}
 export function move(a, from, to) {
   const b = [...a];
   if (from < 0 || to < 0 || from >= b.length || to >= b.length) return b;
