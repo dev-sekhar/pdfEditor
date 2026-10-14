@@ -46,3 +46,7 @@ Desktop.ini
 
 # Track package-lock.json and src-tauri/Cargo.lock for reproducible builds.
 # Track .github/workflows/, Tauri configuration, icons, and source PDFs.
+
+# Browser test artifacts
+/test-results/
+/playwright-report/
