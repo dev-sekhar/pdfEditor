@@ -28,6 +28,7 @@ test('PDF text remains selectable at changed zoom and rotation; thumbnails have 
     expect(selected.width).toBeGreaterThan(100);
   }
   await page.getByRole('button', { name: 'Rotate', exact: false }).click();
+  await expect(page.locator('.app')).toHaveAttribute('aria-busy', 'false');
   await expect(layer).toBeVisible();
   await expect(layer).toContainText('Selectable PDF text');
 });

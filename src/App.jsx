@@ -12,11 +12,14 @@ import { insertPages } from './merge';
 import { isTauri } from '@tauri-apps/api/core';
 import UnsavedDialog from './UnsavedDialog';
 import { registerNativeCloseProtection } from './native-close';
+import MarkupControls from './MarkupControls';
+import { createMarkup } from './markup';
 
 export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, createHistory);
   const { sources, pages, index, bytes } = history.present;
   const [text, setText] = useState('');
+  const [selection, setSelection] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingFiles, setPendingFiles] = useState(null);
@@ -38,6 +41,8 @@ export default function App() {
   const preview = usePreviewDocument(bytes);
   const canUndo = history.past.length > 0;
   const canRedo = history.future.length > 0;
+
+  useEffect(() => setSelection(null), [index, bytes]);
 
   const navigateHistory = useCallback(type => {
     if (busyRef.current) return;
@@ -113,7 +118,7 @@ export default function App() {
   function stamp() {
     void perform(async () => {
       const edited = await assemble(sources, pages, { page: index, text, x: 50, y: 700, size: 14 });
-      const nextPages = pages.map((page, i) => ({ ...page, source: 0, index: i, rotation: 0 }));
+      const nextPages = pages.map((page, i) => ({ ...page, source: 0, index: i, rotation: 0, annotations: [] }));
       await commit([{ name: 'Edited document', bytes: edited }], nextPages, index, 'Add text');
       setText('');
     });
@@ -174,6 +179,17 @@ export default function App() {
     }) : null;
     return () => { closeProtection?.dispose(); window.removeEventListener('beforeunload', beforeUnload); window.removeEventListener('keydown', shortcut); };
   }, []);
+
+  function addMarkup(type, color) {
+    if (!selection || busyRef.current) return;
+    const annotation = createMarkup(type, selection, color);
+    change(pages.map((page, i) => i === index ? { ...page, annotations: [...(page.annotations || []), annotation] } : page), index,
+      type === 'highlight' ? 'Highlight text' : 'Underline text');
+  }
+
+  function removeMarkup(id) {
+    change(pages.map((page, i) => i === index ? { ...page, annotations: (page.annotations || []).filter(item => item.id !== id) } : page), index, 'Delete markup');
+  }
 
   function finishDrag() {
     dragId.current = null;
@@ -288,7 +304,7 @@ export default function App() {
       <section ref={viewport} aria-label="Selected page">
         {(error || preview.error) && <p className="error" role="alert">{error || preview.error}</p>}
         {bytes ? (preview.pdf ? <PageCanvas key={`${preview.id}-${index}`} pdf={preview.pdf} index={index}
-          zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} /> :
+          zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} onSelection={setSelection} /> :
           <p role="status">Loading document…</p>) : <div className="empty">
             <h1>Welcome to PDF Studio</h1>
             <p>Open PDFs to merge, rearrange, rotate, delete, extract, or add text.</p>
@@ -296,6 +312,8 @@ export default function App() {
           </div>}
       </section>
       <aside className="text-sidebar">
+        <MarkupControls selection={selection} annotations={pages[index]?.annotations} disabled={busy || !pages.length}
+          onAdd={addMarkup} onRemove={removeMarkup} />
         <h3>Add text</h3>
         <p>Overlay text on the selected page (existing text editing is not yet supported).</p>
         <textarea aria-label="Text to add" value={text} onChange={event => setText(event.target.value)} placeholder="Enter text" />
