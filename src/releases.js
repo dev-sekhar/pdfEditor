@@ -3,6 +3,12 @@ import packageInfo from '../package.json';
 export const APP_VERSION = packageInfo.version;
 export const RELEASE_STORAGE_KEY = 'pdf-studio-release-seen';
 export const RELEASES = {
+  '0.7.0': [
+    'Select and copy existing PDF text.',
+    'Highlight or underline selected text in your chosen color.',
+    'Add page comments with visible note markers.',
+    'Keep highlights and comments usable in standard PDF readers when saving.',
+  ],
   '0.6.0': [
     'Select incoming PDF pages visually, with synchronized checkboxes and ranges.',
     'Save with Ctrl+S or choose a new file with Ctrl+Shift+S.',

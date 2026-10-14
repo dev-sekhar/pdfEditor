@@ -14,7 +14,7 @@ async function selectText(page) {
   });
 }
 test('selected text becomes visible native markup; undo/redo and delete preserve export', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.5.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.7.0'));
   const source = await PDFDocument.create(); const font = await source.embedFont(StandardFonts.Helvetica);
   source.addPage([400,500]).drawText('Highlight this sentence', { x: 30, y: 420, size: 18, font });
   await page.goto('/');
