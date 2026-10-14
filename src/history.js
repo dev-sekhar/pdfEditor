@@ -45,7 +45,7 @@ export function historyReducer(state, action) {
 
 export function historyShortcut(event) {
   const target = event.target;
-  if (target?.closest?.('input, textarea, select, [contenteditable="true"]')) return null;
+  if (target?.closest?.('input, textarea, select, [contenteditable="true"], dialog[open]')) return null;
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return null;
   const key = event.key.toLowerCase();
   if (key === 'z') return event.shiftKey ? 'redo' : 'undo';

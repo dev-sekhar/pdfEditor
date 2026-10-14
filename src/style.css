@@ -40,3 +40,23 @@ footer { font-size: 11px; color: #66758a; }
   section { min-height: 450px; }
   .pages-sidebar { max-height: 550px; }
 }
+
+.view-toolbar { display: flex; align-items: center; gap: 8px; background: white; padding: 8px 20px; border-bottom: 1px solid #d6deea; }
+.view-toolbar button { padding: 6px 12px; }
+.view-toolbar select { padding: 7px; border: 1px solid #d6deea; border-radius: 6px; color: #26364e; background: white; font: inherit; }
+.zoom-value { font-size: 12px; min-width: 40px; color: #66758a; }
+.save-status { margin-left: auto; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.canvas-holder, .canvas-holder canvas { display: block; }
+.thumbnail { position: relative; cursor: grab; }
+.thumbnail.dragging { opacity: .5; }
+.thumbnail.drop-before::before, .thumbnail.drop-after::after { content: ''; position: absolute; left: -4px; right: -4px; height: 4px; background: #2455c9; border-radius: 3px; }
+.thumbnail.drop-before::before { top: -7px; }
+.thumbnail.drop-after::after { bottom: -7px; }
+footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.whats-new { padding: 4px 10px; white-space: nowrap; }
+.release-dialog { max-width: min(460px, calc(100vw - 40px)); padding: 26px; border: 1px solid #d6deea; border-radius: 14px; color: #26364e; box-shadow: 0 12px 60px #0003; }
+.release-dialog::backdrop { background: #16324f66; }
+.release-dialog h2 { margin: 0 0 16px; font-size: 20px; }
+.release-dialog ul { margin: 0 0 22px; padding-left: 22px; }
+.release-dialog li { margin-bottom: 10px; line-height: 1.5; }
+.release-dialog { font: 14px system-ui; }

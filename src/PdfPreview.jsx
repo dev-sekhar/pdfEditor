@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { previewScale } from './view';
 
 pdfjs.GlobalWorkerOptions.workerSrc = worker;
 
@@ -27,11 +28,26 @@ export function usePreviewDocument(bytes) {
   return state.bytes === bytes ? state : { pdf: null, error: '' };
 }
 
-export const PageCanvas = memo(function PageCanvas({ pdf, index, thumbnail = false, scrollRoot }) {
+export const PageCanvas = memo(function PageCanvas({ pdf, index, thumbnail = false, scrollRoot,
+  zoom = 100, viewportRef, onScale }) {
   const canvas = useRef(null);
   const container = useRef(null);
   const [visible, setVisible] = useState(!thumbnail);
   const [status, setStatus] = useState('loading');
+  const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
+
+  useEffect(() => {
+    if (thumbnail || !viewportRef?.current) return;
+    const viewport = viewportRef.current;
+    const measure = () => {
+      const next = { width: Math.max(1, viewport.clientWidth - 50), height: Math.max(1, viewport.clientHeight - 50) };
+      setViewportSize(previous => previous.width === next.width && previous.height === next.height ? previous : next);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [thumbnail, viewportRef]);
 
   useEffect(() => {
     if (!thumbnail || visible) return;
@@ -49,16 +65,19 @@ export const PageCanvas = memo(function PageCanvas({ pdf, index, thumbnail = fal
     if (!pdf || !visible) return;
     let cancelled = false;
     let render;
-    // Each render owns its canvas. Cancelled PDF.js work cannot race with a new
-    // edit on the same canvas, including rapid undo/redo and page selection.
-    const element = canvas.current;
+    // Give every render its own canvas so rapid zoom/resize cannot race with
+    // an old PDF.js rendering task that is still finishing cancellation.
+    const element = document.createElement('canvas');
+    element.setAttribute('aria-label', `${thumbnail ? 'Thumbnail' : 'Preview'} of page ${index + 1}`);
+    canvas.current.replaceChildren(element);
     setStatus('loading');
     (async () => {
       try {
         const page = await pdf.getPage(index + 1);
         if (cancelled) return;
         const natural = page.getViewport({ scale: 1 });
-        const scale = thumbnail ? Math.min(112 / natural.width, 150 / natural.height) : 1.25;
+        const scale = thumbnail ? Math.min(112 / natural.width, 150 / natural.height) : previewScale(zoom, natural, viewportSize);
+        if (!thumbnail) onScale?.(Math.round(scale * 100));
         const viewport = page.getViewport({ scale });
         const ratio = Math.min(window.devicePixelRatio || 1, 2);
         element.width = Math.ceil(viewport.width * ratio);
@@ -80,11 +99,10 @@ export const PageCanvas = memo(function PageCanvas({ pdf, index, thumbnail = fal
       cancelled = true;
       render?.cancel();
     };
-  }, [pdf, index, thumbnail, visible]);
+  }, [pdf, index, thumbnail, visible, zoom, viewportSize, onScale]);
 
   return <div ref={container} className={thumbnail ? 'thumbnail-preview' : 'page-preview'}>
-    <canvas ref={canvas} aria-label={`${thumbnail ? 'Thumbnail' : 'Preview'} of page ${index + 1}`}
-      style={{ visibility: status === 'ready' ? 'visible' : 'hidden' }} />
+    <div ref={canvas} className="canvas-holder" style={{ visibility: status === 'ready' ? 'visible' : 'hidden' }} />
     {status !== 'ready' && <span className="preview-status" role={thumbnail ? undefined : 'status'}>
       {status === 'error' ? 'Preview unavailable' : 'Loading preview…'}
     </span>}

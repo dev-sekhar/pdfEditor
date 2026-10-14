@@ -3,6 +3,10 @@ import { createRequire } from 'node:module';
 const { PDFDocument, StandardFonts, PDFDict, PDFName } = createRequire(import.meta.url)('pdf-lib');
 import { readFile } from 'node:fs/promises';
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.3.0'));
+});
+
 async function fixture(name, sizes) {
   const document = await PDFDocument.create();
   const font = await document.embedFont(StandardFonts.Helvetica);
@@ -138,4 +142,56 @@ test('offscreen thumbnails render when scrolled into view', async ({ page }) => 
   await last.click();
   await expect(last).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('.page-preview canvas')).toBeVisible();
+});
+
+test('zoom changes only the preview and fit modes follow window resizing', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await upload(page, await fixture('Zoom', [[600, 800]]), 1);
+  await page.getByLabel('Zoom level').selectOption('100');
+  const canvas = page.locator('.page-preview canvas');
+  await expect(canvas).toBeVisible();
+  await expect.poll(() => canvas.evaluate(c => parseFloat(c.style.width))).toBe(600);
+  await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await expect(page.getByLabel('Zoom level')).toHaveValue('125');
+  await expect.poll(() => canvas.evaluate(c => parseFloat(c.style.width))).toBe(750);
+  await page.getByRole('button', { name: 'Zoom out', exact: true }).click();
+  await expect(page.getByLabel('Zoom level')).toHaveValue('100');
+  await page.getByLabel('Zoom level').selectOption('fit-page');
+  await expect.poll(() => canvas.evaluate(c => parseFloat(c.style.height))).toBeLessThan(620);
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await expect.poll(() => canvas.evaluate(c => parseFloat(c.style.height))).toBeLessThan(520);
+  await page.getByLabel('Zoom level').selectOption('fit-width');
+  await expect(canvas).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Undo Open PDFs' })).toBeEnabled();
+  const result = await exported(page);
+  expect(result.getPage(0).getSize()).toEqual({ width: 600, height: 800 });
+  expect(result.getPage(0).getRotation().angle).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('dragging inserts pages before or after targets and preserves undo/redo exports', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 1000 });
+
+  await page.goto('/');
+  await upload(page, await fixture('Drag', [[200, 300], [400, 500], [600, 700]]), 3);
+  await thumbnailsReady(page, 3);
+  await page.getByRole('button', { name: 'Select page 1' }).dragTo(
+    page.getByRole('button', { name: 'Select page 3' }), { targetPosition: { x: 60, y: 175 } });
+  await expect(page.getByRole('button', { name: 'Undo Move page' })).toBeEnabled();
+  expect((await exported(page)).getPages().map(p => p.getSize().width)).toEqual([400, 600, 200]);
+  await expect(page.getByRole('button', { name: 'Select page 3' })).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('button', { name: 'Undo Move page' }).click();
+  expect((await exported(page)).getPages().map(p => p.getSize().width)).toEqual([200, 400, 600]);
+  await page.getByRole('button', { name: 'Redo Move page' }).click();
+  await thumbnailsReady(page, 3);
+  await page.getByRole('button', { name: 'Select page 3' }).dragTo(
+    page.getByRole('button', { name: 'Select page 1' }), { targetPosition: { x: 60, y: 15 } });
+  await expect(page.locator('.app')).toHaveAttribute('aria-busy', 'false');
+  expect((await exported(page)).getPages().map(p => p.getSize().width)).toEqual([200, 400, 600]);
+  await expect(page.getByRole('button', { name: 'Select page 1' })).toHaveAttribute('aria-current', 'page');
+  await thumbnailsReady(page, 3);
+  await expect(page.locator('.page-preview canvas')).toBeVisible();
+  await page.screenshot({ path: 'test-results/editor-v0.3.png', fullPage: true });
 });

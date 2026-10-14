@@ -1,4 +1,4 @@
-# PDF Studio v0.2
+# PDF Studio v0.3
 
 Local-first hybrid PDF editor. React + PDF.js viewer + pdf-lib editing engine, with Tauri 2 desktop wrapper.
 
@@ -56,3 +56,28 @@ Open/merge, page moves, rotations, deletions, and applied text overlays are undo
 7. Export after undo/redo and reopen the PDF in another reader to confirm its final state.
 
 Run `npm test` for PDF/history tests. Run `npm run test:e2e` for real browser import/edit/preview/export checks (requires Playwright Chromium); alternatively set `PLAYWRIGHT_CHANNEL=msedge` to use an installed Edge browser. The Windows cloud workflow installs its test browser on the hosted runner before building installers.
+
+## Zoom, drag reordering, Save As, and release notes (v0.3)
+
+Use the Zoom controls to choose 25–300%, Fit width, or Fit page. Fit modes respond to window resizing. Zoom is a viewing preference and does not alter the exported PDF or add history steps.
+
+Drag a page thumbnail onto the upper or lower half of another thumbnail. A blue line marks the insertion point. The moved page stays selected, and the change supports Undo/Redo. The Move buttons remain available for keyboard use. Import files through Open / merge.
+
+Save As opens the native Windows dialog to choose the filename and location, including for Extract. Cancel leaves the document intact. Saving reports success only after the file write completes; errors appear in the editor. Outside Tauri, the same button uses a browser download. Native file access is limited to paths selected by the save dialog.
+
+What’s new appears once after each version update and can be reopened from the footer. Dismissal is remembered locally on this device. Release notes contain short feature bullets.
+
+### Release procedure
+
+For every release, update the version in package.json, package-lock.json, src-tauri/Cargo.toml, and src-tauri/tauri.conf.json. Add the new version’s concise feature bullets to src/releases.js. A unit test fails if the current version has no release notes. Keep all development on dev and require the Windows installer workflow to pass.
+
+### Desktop checks for v0.3
+
+1. Confirm the release pop-up appears on the first launch, stays dismissed after relaunch, and reopens via What’s new.
+2. Try zoom percentages and fit modes, resize the window, and rotate a page while fitted.
+3. Drag pages up/down with the blue insertion marker; verify Undo/Redo and exported order.
+4. Use Save As to choose a new filename and folder. Reopen the PDF in another reader.
+5. Cancel Save As; verify there is no success message or new file and the editor is still usable.
+6. Test overwriting an existing PDF with the native confirmation, and test extracting a single page through Save As.
+
+Browser tests and mocked Save As unit tests cover app behavior, cancellation, and write errors. The native dialog’s appearance, overwrite confirmation, and chosen-path access still require desktop acceptance checks.
