@@ -101,3 +101,6 @@ The merge dialog shows thumbnails of the selected pages in insertion order, labe
 Incoming PDFs show checkboxes on every page thumbnail. Use Select all or Clear selection for each PDF, or enter ranges such as `1, 3-5`. The range field and checkboxes stay synchronized. Blank means all pages; `none` explicitly excludes that PDF. At least one incoming page must be selected before insertion.
 
 Selected-page previews show the exact merge order. Pages checked later are appended to that order, and you can inspect a larger preview before inserting. Verify the exported document and undo the merge to check the original remains recoverable.
+### Native close acceptance check
+
+The Windows close handler is covered with injected API tests; these do not operate a real window. On Windows, verify that a clean document closes normally, unsaved changes show Save/Discard/Cancel, cancelling Save As or a failed write keeps the app open, and closing during an operation does not discard the document. A second close request must preserve any existing unsaved-changes prompt. Save and Discard close only after their guarded continuation; a native close failure is shown in the editor.

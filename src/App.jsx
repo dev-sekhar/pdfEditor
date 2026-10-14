@@ -11,6 +11,7 @@ import MergeDialog from './MergeDialog';
 import { insertPages } from './merge';
 import { isTauri } from '@tauri-apps/api/core';
 import UnsavedDialog from './UnsavedDialog';
+import { registerNativeCloseProtection } from './native-close';
 
 export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, createHistory);
@@ -154,7 +155,7 @@ export default function App() {
     });
   }
 
-  live.current = { dirty, requestAction, save };
+  live.current = { dirty, pendingAction: Boolean(pendingAction), requestAction, save };
   useEffect(() => {
     const beforeUnload = event => { if (live.current.dirty || busyRef.current) { event.preventDefault(); event.returnValue = ''; } };
     const shortcut = event => {
@@ -164,18 +165,11 @@ export default function App() {
     };
     window.addEventListener('beforeunload', beforeUnload);
     window.addEventListener('keydown', shortcut);
-    let disposed = false;
-    let unlisten;
-    if (isTauri()) import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
-      const nativeWindow = getCurrentWindow();
-      const stop = await nativeWindow.onCloseRequested(event => {
-        event.preventDefault();
-        if (busyRef.current) return;
-        live.current.requestAction(() => nativeWindow.destroy());
-      });
-      if (disposed) stop(); else unlisten = stop;
-    }).catch(cause => setError(`Close protection unavailable: ${String(cause)}`));
-    return () => { disposed = true; unlisten?.(); window.removeEventListener('beforeunload', beforeUnload); window.removeEventListener('keydown', shortcut); };
+    const closeProtection = isTauri() ? registerNativeCloseProtection({
+      getState: () => ({ ...live.current, busy: busyRef.current }),
+      requestAction: action => live.current.requestAction(action), onError: setError,
+    }) : null;
+    return () => { closeProtection?.dispose(); window.removeEventListener('beforeunload', beforeUnload); window.removeEventListener('keydown', shortcut); };
   }, []);
 
   function finishDrag() {
