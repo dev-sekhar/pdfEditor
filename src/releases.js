@@ -7,7 +7,7 @@ export const RELEASES = {
     'Select and copy existing PDF text.',
     'Highlight or underline selected text in your chosen color.',
     'Add page comments with visible note markers.',
-    'Keep highlights and comments usable in standard PDF readers when saving.',
+    'Reopen Studio comments and markup, or read them in other PDF readers.',
   ],
   '0.6.0': [
     'Select incoming PDF pages visually, with synchronized checkboxes and ranges.',
