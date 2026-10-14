@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import { mergeOffset, parsePageSelection } from './merge';
+import IncomingPreview from './IncomingPreview';
 
 export default function MergeDialog({ files, count, selectedIndex, onConfirm, onCancel }) {
   const dialog = useRef(null);
@@ -32,6 +33,15 @@ export default function MergeDialog({ files, count, selectedIndex, onConfirm, on
       onConfirm(mergeOffset(mode, count, selectedIndex, pageNumber), selections);
     } catch (cause) { setError(cause.message); }
   }
+  let summary = '';
+  if (prepared) {
+    try {
+      const total = prepared.reduce((sum, item, index) => sum + parsePageSelection(ranges[index], item.count).length, 0);
+      const offset = mergeOffset(mode, count, selectedIndex, pageNumber);
+      const location = offset === 0 ? 'at the beginning' : offset === count ? 'at the end' : `before current page ${offset + 1}`;
+      summary = `Insert ${total} ${total === 1 ? 'page' : 'pages'} ${location}. Result: ${count + total} pages.`;
+    } catch { summary = 'Correct the page selection and insertion position to see the merge summary.'; }
+  }
   return <dialog ref={dialog} className="merge-dialog" aria-labelledby="merge-title"
     onCancel={event => { event.preventDefault(); onCancel(); }}>
     <form onSubmit={submit}>
@@ -44,6 +54,7 @@ export default function MergeDialog({ files, count, selectedIndex, onConfirm, on
           disabled={!prepared} aria-describedby={`incoming-help-${index}`}
           onChange={event => { setRanges(previous => previous.map((value, i) => i === index ? event.target.value : value)); setError(''); }} />
         <p id={`incoming-help-${index}`} className="muted">{prepared ? `${prepared[index].count} pages. ` : ''}Leave blank for all pages.</p>
+        {prepared && <IncomingPreview item={prepared[index]} range={ranges[index]} />}
       </div>)}
       <p className="muted">Pages follow the order entered. Repeated pages are included once. PDFs follow selected file order.</p>
       <label htmlFor="merge-position">Insert position</label>
@@ -60,6 +71,7 @@ export default function MergeDialog({ files, count, selectedIndex, onConfirm, on
           value={pageNumber} onChange={event => setPageNumber(event.target.value)} />
         <p className="muted">Choose 1–{count + 1}. Page 1 means the beginning; {count + 1} means the end.</p>
       </>}
+      {summary && <p className="merge-summary" role="status">{summary}</p>}
       {error && <p className="error" role="alert">{error}</p>}
       <div className="dialog-actions"><button type="button" onClick={onCancel}>Cancel</button>
         <button type="submit" className="primary" disabled={!prepared}>Insert PDFs</button></div>

@@ -5,7 +5,7 @@ export const RELEASE_STORAGE_KEY = 'pdf-studio-release-seen';
 export const RELEASES = {
   '0.5.0': [
     'Choose individual pages or page ranges from each incoming PDF.',
-    'Preview page counts and validate ranges before merging.',
+    'Preview selected pages and inspect them before merging.',
     'Keep your insertion position and undo or redo the entire merge.',
   ],
   '0.4.0': [

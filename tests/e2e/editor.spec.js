@@ -279,3 +279,41 @@ test('each incoming PDF has its own range, with validation before any merge', as
   await expect(page.locator('.page-count')).toHaveText('4 pages');
   expect((await exported(page)).getPages().map(p => p.getWidth())).toEqual([200, 600, 1000, 1200]);
 });
+
+test('selected page previews match range order, update live, and allow larger inspection before insertion', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  await upload(page, await fixture('Original', [[200, 300], [400, 500]]), 2);
+  await page.getByRole('button', { name: 'Select page 2' }).click();
+  await page.getByLabel('Open or merge PDFs').setInputFiles(await fixture('Preview', [[600, 700], [800, 700], [1000, 700]]));
+  await page.getByLabel('Pages from Preview.pdf').fill('3, 1');
+  const previews = page.getByLabel('Merge preview for Preview.pdf', { exact: true });
+  await expect(previews.locator('.incoming-preview-page')).toHaveCount(2);
+  await expect(previews.locator('.incoming-preview-page')).toHaveText(['Page 3', 'Page 1']);
+  const first = page.getByRole('button', { name: 'Inspect Preview.pdf page 3', exact: true });
+  await first.scrollIntoViewIfNeeded();
+  await expect(first.locator('canvas')).toBeVisible();
+  expect(await first.locator('canvas').evaluate(canvas => {
+    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 0; i < pixels.length; i += 4) if (pixels[i + 3] && pixels[i] < 245) return true;
+    return false;
+  })).toBe(true);
+  await first.click();
+  await expect(previews.locator('.incoming-large-preview canvas')).toBeVisible();
+  await expect(previews.locator('.inspection-heading')).toContainText('Preview.pdf · Page 3');
+  await page.getByRole('button', { name: 'Close preview', exact: true }).click();
+  await page.getByLabel('Insert position').selectOption('before');
+  await expect(page.locator('.merge-summary')).toHaveText('Insert 2 pages before current page 2. Result: 4 pages.');
+  await page.getByLabel('Pages from Preview.pdf').fill('4');
+  await expect(previews).toHaveCount(0);
+  await page.getByLabel('Pages from Preview.pdf').fill('2-3');
+  await expect(page.getByLabel('Merge preview for Preview.pdf').locator('.incoming-preview-page')).toHaveText(['Page 2', 'Page 3']);
+  await page.getByRole('button', { name: 'Inspect Preview.pdf page 2', exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole('button', { name: 'Inspect Preview.pdf page 2', exact: true }).locator('canvas')).toBeVisible();
+  await page.screenshot({ path: 'test-results/merge-preview.png' });
+  await page.getByRole('button', { name: 'Insert PDFs', exact: true }).click();
+  await expect(page.locator('.page-count')).toHaveText('4 pages');
+  expect((await exported(page)).getPages().map(p => p.getWidth())).toEqual([200, 800, 1000, 400]);
+  expect(errors).toEqual([]);
+});
