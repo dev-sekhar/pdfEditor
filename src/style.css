@@ -80,3 +80,9 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .inspection-heading button { flex-shrink: 0; padding: 5px 8px; }
 .incoming-large-preview { height: 320px; overflow: auto; padding: 25px; text-align: center; background: #e9edf4; margin-top: 8px; }
 .merge-summary { background: #e8efff; color: #16324f; padding: 12px; border-radius: 8px; }
+.selection-actions { display: flex; gap: 8px; }
+.incoming-selection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 10px; max-height: 225px; overflow-y: auto; padding: 6px; background: #f3f6fb; border-radius: 8px; }
+.merge-dialog .incoming-selection-page { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 0; padding: 8px; border: 1px solid #d6deea; border-radius: 8px; background: white; cursor: pointer; }
+.merge-dialog .incoming-selection-page:has(input:checked) { border-color: #2455c9; background: #e8efff; }
+.merge-dialog .incoming-selection-page input { width: 18px; height: 18px; accent-color: #2455c9; }
+.incoming-selection-page:focus-within { outline: 3px solid #688de3; outline-offset: 2px; }

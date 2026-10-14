@@ -95,3 +95,9 @@ When merging into an open document, each incoming PDF has a page-selection field
 Invalid, reversed, or out-of-bounds ranges keep the dialog open without changing the current document. Correct the range or Cancel. Selected pages retain the existing insertion options and are one Undo/Redo step. Corrupt/password-protected PDFs report an import error before merging. Cancel while reading files leaves the current document unchanged.
 
 The merge dialog shows thumbnails of the selected pages in insertion order, labeled with original page numbers and source filenames. Click a thumbnail to inspect a larger preview. Previews update when ranges change; invalid ranges hide the selected-page preview. The summary states where selected pages will be inserted and the resulting document page count. No pages are inserted until you confirm.
+
+## Visual incoming page selection
+
+Incoming PDFs show checkboxes on every page thumbnail. Use Select all or Clear selection for each PDF, or enter ranges such as `1, 3-5`. The range field and checkboxes stay synchronized. Blank means all pages; `none` explicitly excludes that PDF. At least one incoming page must be selected before insertion.
+
+Selected-page previews show the exact merge order. Pages checked later are appended to that order, and you can inspect a larger preview before inserting. Verify the exported document and undo the merge to check the original remains recoverable.

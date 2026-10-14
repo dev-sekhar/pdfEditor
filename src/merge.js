@@ -20,6 +20,7 @@ export function insertPages(existing, incoming, offset) {
 export function parsePageSelection(value, count) {
   if (!Number.isInteger(count) || count < 1) throw new Error('This PDF has no pages.');
   const text = value.trim();
+  if (text.toLowerCase() === 'none') return [];
   if (!text || text.toLowerCase() === 'all') return Array.from({ length: count }, (_, index) => index);
   const selected = new Set();
   for (const part of text.split(',')) {
@@ -33,4 +34,16 @@ export function parsePageSelection(value, count) {
     for (let page = first; page <= last; page++) selected.add(page - 1);
   }
   return [...selected];
+}
+
+export function formatPageSelection(indices) {
+  if (!indices.length) return 'none';
+  const parts = [];
+  for (let i = 0; i < indices.length; i++) {
+    const first = indices[i];
+    let last = first;
+    while (i + 1 < indices.length && indices[i + 1] === last + 1) last = indices[++i];
+    parts.push(first === last ? String(first + 1) : `${first + 1}-${last + 1}`);
+  }
+  return parts.join(', ');
 }

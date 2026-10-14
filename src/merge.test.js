@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import { assemble } from './pdf';
-import { insertPages, mergeOffset } from './merge';
+import { insertPages, mergeOffset, formatPageSelection, parsePageSelection } from './merge';
 
 it('resolves all positions and validates one-based page numbers', () => {
   expect(mergeOffset('before', 3, 1)).toBe(1);
@@ -11,6 +11,15 @@ it('resolves all positions and validates one-based page numbers', () => {
   expect(mergeOffset('number', 3, 1, '3')).toBe(2);
   expect(mergeOffset('number', 3, 1, '4')).toBe(3);
   for (const value of ['', 0, 5, 1.5, 'invalid']) expect(() => mergeOffset('number', 3, 1, value)).toThrow();
+});
+
+it('round trips empty and click selections without accidentally selecting all pages', () => {
+  for (const indices of [[], [0], [2, 0, 1, 4], [0, 1, 2, 4, 5]]) {
+    expect(parsePageSelection(formatPageSelection(indices), 6)).toEqual(indices);
+  }
+  expect(formatPageSelection([])).toBe('none');
+  expect(formatPageSelection([0, 1, 2, 4, 5])).toBe('1-3, 5-6');
+  expect(parsePageSelection('NONE', 3)).toEqual([]);
 });
 it('exports incoming pages together at every offset without mutating original pages', async () => {
   const sources = [];

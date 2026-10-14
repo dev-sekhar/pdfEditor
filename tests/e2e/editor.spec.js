@@ -40,6 +40,54 @@ async function thumbnailsReady(page, count) {
   }
 }
 
+test('visual incoming selection synchronizes ranges, clears safely, and exports chosen pages', async ({ page }) => {
+  await page.goto('/');
+  await upload(page, await fixture('Original', [[200, 300]]), 1);
+  await page.getByLabel('Open or merge PDFs').setInputFiles(await fixture('Incoming', [[400, 500], [600, 700], [800, 900]]));
+  const range = page.getByLabel('Pages from Incoming.pdf');
+  await expect(page.getByLabel('Include Incoming.pdf page 1')).toBeChecked();
+  await page.getByRole('button', { name: 'Clear selection', exact: true }).click();
+  await expect(range).toHaveValue('none');
+  await expect(page.locator('.incoming-preview-page')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Insert PDFs', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Select at least one page');
+  await page.getByLabel('Include Incoming.pdf page 3').check();
+  await page.getByLabel('Include Incoming.pdf page 1').check();
+  await expect(range).toHaveValue('3, 1');
+  await expect(page.locator('.incoming-preview-page')).toHaveText(['Page 3', 'Page 1']);
+  await range.fill('1-2');
+  await expect(page.getByLabel('Include Incoming.pdf page 1')).toBeChecked();
+  await expect(page.getByLabel('Include Incoming.pdf page 2')).toBeChecked();
+  await expect(page.getByLabel('Include Incoming.pdf page 3')).not.toBeChecked();
+  await page.getByRole('button', { name: 'Select all', exact: true }).click();
+  await expect(range).toHaveValue('1-3');
+  await page.getByLabel('Include Incoming.pdf page 2').uncheck();
+  await page.getByRole('button', { name: 'Insert PDFs', exact: true }).click();
+  await expect(page.locator('.page-count')).toHaveText('3 pages');
+  expect((await exported(page)).getPages().map(p => p.getWidth())).toEqual([200, 400, 800]);
+  await page.getByRole('button', { name: 'Undo Merge PDFs' }).click();
+  await expect(page.locator('.page-count')).toHaveText('1 pages');
+});
+
+test('cleared selections exclude only that incoming PDF and cancellation preserves the document', async ({ page }) => {
+  await page.goto('/');
+  await upload(page, await fixture('Original', [[200, 300]]), 1);
+  await page.getByLabel('Open or merge PDFs').setInputFiles([
+    await fixture('Skip', [[400, 500], [600, 700]]), await fixture('Keep', [[800, 900]]),
+  ]);
+  await page.getByLabel('Merge preview for Skip.pdf', { exact: true }).getByRole('button', { name: 'Clear selection', exact: true }).click();
+  await expect(page.getByLabel('Pages from Skip.pdf')).toHaveValue('none');
+  await expect(page.locator('.merge-summary')).toContainText('Insert 1 page');
+  await page.getByRole('button', { name: 'Insert PDFs', exact: true }).click();
+  await expect(page.locator('.page-count')).toHaveText('2 pages');
+  expect((await exported(page)).getPages().map(p => p.getWidth())).toEqual([200, 800]);
+  await page.getByLabel('Open or merge PDFs').setInputFiles(await fixture('Cancelled', [[1000, 1100]]));
+  await page.getByRole('button', { name: 'Clear selection', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.locator('.page-count')).toHaveText('2 pages');
+  expect((await exported(page)).getPages().map(p => p.getWidth())).toEqual([200, 800]);
+});
+
 test('thumbnails follow rotate/delete/move and undo/redo matches the exported PDF', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

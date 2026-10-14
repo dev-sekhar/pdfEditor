@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PDFDocument } from 'pdf-lib';
-import { mergeOffset, parsePageSelection } from './merge';
+import { mergeOffset, parsePageSelection, formatPageSelection } from './merge';
 import IncomingPreview from './IncomingPreview';
 
 export default function MergeDialog({ files, count, selectedIndex, onConfirm, onCancel }) {
@@ -30,6 +30,7 @@ export default function MergeDialog({ files, count, selectedIndex, onConfirm, on
         try { return { ...item, indices: parsePageSelection(ranges[index], item.count) }; }
         catch (cause) { throw new Error(`${item.name}: ${cause.message}`); }
       });
+      if (!selections.some(item => item.indices.length)) throw new Error('Select at least one page to insert.');
       onConfirm(mergeOffset(mode, count, selectedIndex, pageNumber), selections);
     } catch (cause) { setError(cause.message); }
   }
@@ -53,8 +54,10 @@ export default function MergeDialog({ files, count, selectedIndex, onConfirm, on
         <input id={`incoming-${index}`} type="text" value={ranges[index]} placeholder="All pages, or 1, 3-5, 8"
           disabled={!prepared} aria-describedby={`incoming-help-${index}`}
           onChange={event => { setRanges(previous => previous.map((value, i) => i === index ? event.target.value : value)); setError(''); }} />
-        <p id={`incoming-help-${index}`} className="muted">{prepared ? `${prepared[index].count} pages. ` : ''}Leave blank for all pages.</p>
-        {prepared && <IncomingPreview item={prepared[index]} range={ranges[index]} />}
+        <p id={`incoming-help-${index}`} className="muted">{prepared ? `${prepared[index].count} pages. ` : ''}Leave blank for all pages; “none” excludes this PDF. Checkboxes and ranges stay in sync.</p>
+        {prepared && <IncomingPreview item={prepared[index]} range={ranges[index]} onSelectionChange={indices => {
+          setRanges(previous => previous.map((value, i) => i === index ? formatPageSelection(indices) : value)); setError('');
+        }} />}
       </div>)}
       <p className="muted">Pages follow the order entered. Repeated pages are included once. PDFs follow selected file order.</p>
       <label htmlFor="merge-position">Insert position</label>
