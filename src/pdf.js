@@ -1,0 +1,4 @@
+import {PDFDocument,degrees,StandardFonts} from 'pdf-lib';
+export async function assemble(sources,pages,overlay){const out=await PDFDocument.create();const docs=await Promise.all(sources.map(s=>PDFDocument.load(s.bytes)));for(const p of pages){const [copy]=await out.copyPages(docs[p.source],[p.index]);copy.setRotation(degrees((copy.getRotation().angle+p.rotation)%360));out.addPage(copy)}if(overlay){const font=await out.embedFont(StandardFonts.Helvetica);out.getPage(overlay.page).drawText(overlay.text,{x:overlay.x,y:overlay.y,size:overlay.size,font})}return out.save()}
+export function move(a,from,to){const b=[...a];if(from<0||to<0||from>=b.length||to>=b.length)return b;b.splice(to,0,b.splice(from,1)[0]);return b}
+export function download(bytes,name){const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}

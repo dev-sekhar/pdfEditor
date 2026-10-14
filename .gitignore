@@ -1,0 +1,48 @@
+# React / Vite dependencies and build output
+node_modules/
+/dist/
+.vite/
+*.tsbuildinfo
+
+# Vitest coverage
+/coverage/
+
+# Rust / Tauri build output and generated schemas
+/target/
+/src-tauri/target/
+/src-tauri/gen/schemas/
+
+# Local environment files (keep example templates)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Local signing keys and certificates
+*.key
+*.pfx
+*.p12
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Editor files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.swp
+*.swo
+*~
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Track package-lock.json and src-tauri/Cargo.lock for reproducible builds.
+# Track .github/workflows/, Tauri configuration, icons, and source PDFs.
