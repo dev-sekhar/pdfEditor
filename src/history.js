@@ -10,6 +10,7 @@ export function createHistory() {
 
 export function historyReducer(state, action) {
   switch (action.type) {
+    case 'replace': return { past: [], present: action.document, future: [] };
     case 'commit':
       return {
         past: [...state.past, state.present].slice(-HISTORY_LIMIT),

@@ -40,3 +40,12 @@ describe('PDF Save As', () => {
     expect(mocks.save).not.toHaveBeenCalled();
   });
 });
+
+it('saves to an acknowledged current path without opening Save As again', async () => {
+  vi.resetAllMocks();
+  mocks.isTauri.mockReturnValue(true);
+  const bytes = new Uint8Array([37, 80, 68, 70]);
+  expect(await savePdf(bytes, 'edited.pdf', 'C:\\Docs\\existing.pdf')).toEqual({ kind: 'saved', path: 'C:\\Docs\\existing.pdf' });
+  expect(mocks.save).not.toHaveBeenCalled();
+  expect(mocks.writeFile).toHaveBeenCalledWith('C:\\Docs\\existing.pdf', bytes);
+});

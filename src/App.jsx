@@ -9,6 +9,8 @@ import { APP_VERSION } from './releases';
 import ReleaseNotes from './ReleaseNotes';
 import MergeDialog from './MergeDialog';
 import { insertPages } from './merge';
+import { isTauri } from '@tauri-apps/api/core';
+import UnsavedDialog from './UnsavedDialog';
 
 export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, createHistory);
@@ -17,6 +19,12 @@ export default function App() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingFiles, setPendingFiles] = useState(null);
+  const [savedBytes, setSavedBytes] = useState(null);
+  const [currentPath, setCurrentPath] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null);
+  const documentName = useRef('edited.pdf');
+  const live = useRef({});
+  const dirty = bytes !== savedBytes;
   const [zoom, setZoom] = useState('fit-width');
   const [displayZoom, setDisplayZoom] = useState(100);
   const [saveStatus, setSaveStatus] = useState('');
@@ -57,7 +65,7 @@ export default function App() {
     setBusy(true);
     setError('');
     setSaveStatus('');
-    try { await operation(); }
+    try { return await operation(); }
     catch (cause) { setError(String(cause)); }
     finally { busyRef.current = false; setBusy(false); }
   }
@@ -69,6 +77,7 @@ export default function App() {
       index: Math.max(0, Math.min(nextIndex, nextPages.length - 1)),
       bytes: nextBytes, label,
     } });
+    return nextBytes;
   }
 
   function open(files, offset = pages.length, selections = null) {
@@ -88,7 +97,8 @@ export default function App() {
         }
       }
       if (!incoming.length) return;
-      await commit(nextSources, insertPages(pages, incoming, offset), offset, pages.length ? 'Merge PDFs' : 'Open PDFs');
+      const nextBytes = await commit(nextSources, insertPages(pages, incoming, offset), offset, pages.length ? 'Merge PDFs' : 'Open PDFs');
+      if (sources.length === 0 && files.length === 1) { setSavedBytes(nextBytes); documentName.current = files[0].name; }
     });
   }
 
@@ -105,14 +115,68 @@ export default function App() {
     });
   }
 
-  function save(extract = false) {
-    void perform(async () => {
+  async function save(extract = false, saveAs = true) {
+    return perform(async () => {
       const output = extract ? await assemble(sources, [pages[index]]) : bytes;
-      const result = await savePdf(output, extract ? 'page.pdf' : 'edited.pdf');
-      if (result.kind === 'saved') setSaveStatus(`Saved: ${result.path}`);
-      if (result.kind === 'downloaded') setSaveStatus('PDF download started.');
+      if (!output) throw new Error('There are no pages to save. Undo the deletion or discard changes.');
+      const result = await savePdf(output, extract ? 'page.pdf' : documentName.current, !extract && !saveAs ? currentPath : null);
+      if (result.kind === 'saved') {
+        setSaveStatus(`Saved: ${result.path}`);
+        if (!extract) { setSavedBytes(bytes); setCurrentPath(result.path); }
+        return true;
+      }
+      if (result.kind === 'downloaded') setSaveStatus('PDF download started; completion cannot be confirmed.');
+      if (result.kind === 'cancelled') setSaveStatus('Save cancelled. Changes have not been saved.');
+      return false;
     });
   }
+
+  function requestAction(action) {
+    if (busyRef.current) return;
+    if (dirty) setPendingAction(() => action);
+    else void continueAction(action);
+  }
+
+  async function continueAction(action) {
+    try { await action(); } catch (cause) { setError('Could not continue: ' + String(cause)); }
+  }
+
+  async function replaceDocument(file) {
+    await perform(async () => {
+      const sourceBytes = new Uint8Array(await file.arrayBuffer());
+      const loaded = await PDFDocument.load(sourceBytes);
+      const nextSources = [{ name: file.name, bytes: sourceBytes }];
+      const nextPages = Array.from({ length: loaded.getPageCount() }, (_, index) => ({ id: crypto.randomUUID(), source: 0, index, rotation: 0 }));
+      const nextBytes = await assemble(nextSources, nextPages);
+      dispatch({ type: 'replace', document: { sources: nextSources, pages: nextPages, index: 0, bytes: nextBytes, label: 'Open document' } });
+      setSavedBytes(nextBytes); setCurrentPath(null); documentName.current = file.name;
+      setText(''); setPendingFiles(null);
+    });
+  }
+
+  live.current = { dirty, requestAction, save };
+  useEffect(() => {
+    const beforeUnload = event => { if (live.current.dirty || busyRef.current) { event.preventDefault(); event.returnValue = ''; } };
+    const shortcut = event => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 's') return;
+      event.preventDefault();
+      if (!document.querySelector('dialog[open]')) void live.current.save(false, event.shiftKey);
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    window.addEventListener('keydown', shortcut);
+    let disposed = false;
+    let unlisten;
+    if (isTauri()) import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+      const nativeWindow = getCurrentWindow();
+      const stop = await nativeWindow.onCloseRequested(event => {
+        event.preventDefault();
+        if (busyRef.current) return;
+        live.current.requestAction(() => nativeWindow.destroy());
+      });
+      if (disposed) stop(); else unlisten = stop;
+    }).catch(cause => setError(`Close protection unavailable: ${String(cause)}`));
+    return () => { disposed = true; unlisten?.(); window.removeEventListener('beforeunload', beforeUnload); window.removeEventListener('keydown', shortcut); };
+  }, []);
 
   function finishDrag() {
     dragId.current = null;
@@ -153,11 +217,16 @@ export default function App() {
     <header>
       <strong>▣ PDF Studio</strong>
       <div className="file-actions">
+        <label className={`button ${busy ? 'disabled' : ''}`}>Open new document
+          <input type="file" aria-label="Open new document" accept=".pdf" disabled={busy}
+            onChange={event => { const file = event.target.files[0]; event.target.value = ''; if (file) requestAction(() => replaceDocument(file)); }} />
+        </label>
         <label className={`button primary ${busy ? 'disabled' : ''}`}>
           ＋ Open / merge
           <input type="file" aria-label="Open or merge PDFs" accept=".pdf" multiple disabled={busy}
             onChange={event => { const files = Array.from(event.target.files); event.target.value = ''; if (!files.length) return; if (pages.length) setPendingFiles(files); else open(files, 0); }} />
         </label>
+        <button aria-label="Save PDF" disabled={busy || !pages.length} onClick={() => save(false, false)}>Save</button>
         <button aria-label="Save As / Export PDF" disabled={busy || !pages.length} onClick={() => save()}>↓ Save As…</button>
       </div>
     </header>
@@ -190,6 +259,7 @@ export default function App() {
         onClick={() => setZoom(stepZoom(displayZoom, 1))}>＋</button>
       <span className="zoom-value">{pages.length ? `${displayZoom}%` : ''}</span>
       <span className="save-status" role="status">{saveStatus}</span>
+      <span className="document-status" role="status">{dirty ? 'Unsaved changes' : 'No unsaved changes'}</span>
     </div>
     <main>
       <aside ref={sidebar} className="pages-sidebar" aria-label="Page thumbnails">
@@ -239,6 +309,9 @@ export default function App() {
     </main>
     {pendingFiles && <MergeDialog files={pendingFiles} count={pages.length} selectedIndex={index}
       onCancel={() => setPendingFiles(null)} onConfirm={(offset, selections) => { const files = pendingFiles; setPendingFiles(null); open(files, offset, selections); }} />}
+    {pendingAction && <UnsavedDialog saving={busy} error={error} status={saveStatus} browser={!isTauri()} onCancel={() => setPendingAction(null)}
+      onDiscard={() => { const action = pendingAction; setPendingAction(null); void continueAction(action); }}
+      onSave={async () => { if (await save(false, false)) { const action = pendingAction; setPendingAction(null); void continueAction(action); } }} />}
     <footer><span>PDF Studio {APP_VERSION} · Page {pages.length ? index + 1 : 0} of {pages.length} · Up to 30 undo steps this session</span>
       <ReleaseNotes />
     </footer>

@@ -86,3 +86,8 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .merge-dialog .incoming-selection-page:has(input:checked) { border-color: #2455c9; background: #e8efff; }
 .merge-dialog .incoming-selection-page input { width: 18px; height: 18px; accent-color: #2455c9; }
 .incoming-selection-page:focus-within { outline: 3px solid #688de3; outline-offset: 2px; }
+
+.document-status { font-size: 12px; white-space: nowrap; color: #66758a; }
+.unsaved-dialog { max-width: min(480px, calc(100vw - 40px)); padding: 24px; border: 1px solid #d6deea; border-radius: 12px; color: #26364e; font: 14px system-ui; }
+.unsaved-dialog::backdrop { background: #16324f66; }
+.unsaved-dialog h2 { margin-top: 0; }
