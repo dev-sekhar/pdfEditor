@@ -16,7 +16,7 @@ async function exportStyle(page) {
 }
 
 test('text defaults preview live and selected overlay styles apply as one undoable exported edit', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
   await page.goto('/');
   const pdf = await PDFDocument.create(); pdf.addPage([600, 800]);
   await page.getByLabel('Open or merge PDFs').setInputFiles({ name: 'blank.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await pdf.save()) });

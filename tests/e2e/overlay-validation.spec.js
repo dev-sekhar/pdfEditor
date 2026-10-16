@@ -7,7 +7,7 @@ async function fixture(name) {
   return {name:`${name}.pdf`,mimeType:'application/pdf',buffer:Buffer.from(await doc.save())};
 }
 test.beforeEach(async ({page}) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen','0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen','0.10.0'));
   await page.goto('/');await page.getByLabel('Open or merge PDFs').setInputFiles(await fixture('original'));
 });
 test('invalid default size prevents placement and replacing the document clears placement mode', async ({page}) => {

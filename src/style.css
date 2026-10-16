@@ -8,7 +8,7 @@ button:focus-visible, .button:focus-within, textarea:focus-visible { outline: 3p
 header, nav, footer { background: white; padding: 12px 20px; border-bottom: 1px solid #ddd; }
 header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 header strong { font-size: 22px; white-space: nowrap; }
-.file-actions { display: flex; gap: 8px; }
+.file-actions { display: flex; gap: 8px; flex-wrap: wrap; min-width: 0; max-width: 100%; }
 .file-actions label { position: relative; overflow: hidden; }
 .file-actions input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
 nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

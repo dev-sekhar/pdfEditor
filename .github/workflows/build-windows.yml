@@ -13,7 +13,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  word-layout:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install conversion test dependencies
+        run: npm ci
+      - name: Install browser and document renderer on cloud runner
+        run: |
+          npx playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y libreoffice-writer fonts-liberation poppler-utils
+      - name: Exercise Word exports
+        run: npx playwright test tests/e2e/word-export.spec.js
+      - name: Render Word exports and check pagination
+        run: python3 scripts/verify-word-layout.py
+      - name: Upload synthetic Word layout previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Word-export-layout-${{ github.sha }}
+          path: word-layout-results/
+          if-no-files-found: warn
+          retention-days: 7
   windows:
+    needs: word-layout
     if: github.ref == 'refs/heads/dev'
     runs-on: windows-2022
     timeout-minutes: 60
@@ -37,7 +67,7 @@ jobs:
         run: npm test
       - name: Install cloud browser for UI tests
         run: npx playwright install chromium
-      - name: Test editor and secure redaction in browser
+      - name: Test editor, redaction and Word export in browser
         run: npm run test:e2e
       - name: Package Windows installers
         # Tauri runs npm run build via beforeBuildCommand.

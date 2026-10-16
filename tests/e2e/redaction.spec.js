@@ -156,7 +156,7 @@ async function assertEmbeddedPixels(bytes, geometry, before) {
 
 test('real browser core sanitizes the original complete object graph and burns native-resolution RGB pixels', async ({ page }) => {
   test.setTimeout(90000);
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
   const original = await sensitiveFixture(); await page.goto('/');
   const source = await PDFDocument.load(original);
   expect(source.catalog.has(PDFName.of('AcroForm'))).toBe(true);
@@ -184,7 +184,7 @@ test('real browser core sanitizes the original complete object graph and burns n
 
 test('secure redaction removes text, hidden content and source structures while burning pixels on cropped rotated pages', async ({ page }, testInfo) => {
   test.setTimeout(90000);
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
   const original = await sensitiveFixture(); const sourcePath = testInfo.outputPath('sensitive-source.pdf');
   await writeFile(sourcePath, original); await page.goto('/');
   const geometry = await fixtureGeometry(page, original);
@@ -228,7 +228,7 @@ test('secure redaction removes text, hidden content and source structures while 
 });
 
 test('cancelling application leaves marks pending and blocks saving until marks are cleared', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
   const bytes = await sensitiveFixture(); await page.goto('/');
   const geometry = await fixtureGeometry(page, bytes);
   await page.getByLabel('Open or merge PDFs').setInputFiles({ name: 'cancel.pdf', mimeType: 'application/pdf', buffer: bytes });
@@ -242,7 +242,7 @@ test('cancelling application leaves marks pending and blocks saving until marks 
 });
 
 test('pending marks block keyboard saving and successful redaction forgets the original save destination', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
   await page.route('**/src/save.js*', route => route.fulfill({ contentType: 'application/javascript', body: `
     export async function savePdf(bytes, name, currentPath = null) {
       window.redactionSaveCalls = [...(window.redactionSaveCalls || []), { name, currentPath }];
@@ -269,7 +269,7 @@ test('pending marks block keyboard saving and successful redaction forgets the o
 });
 
 for (const mode of ['error', 'abort']) test(`processing ${mode} preserves the original document and pending marks`, async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
   await page.route('**/src/redaction.js*', route => route.fulfill({ contentType: 'application/javascript', body: `
     export async function redactToImagePdf(bytes, marks, options) {
       ${mode === 'error' ? "throw new Error('Injected raster failure');" : `

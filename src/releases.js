@@ -3,6 +3,12 @@ import packageInfo from '../package.json';
 export const APP_VERSION = packageInfo.version;
 export const RELEASE_STORAGE_KEY = 'pdf-studio-release-seen';
 export const RELEASES = {
+  '0.10.0': [
+    'Export your current PDF as a Word document (.docx).',
+    'Choose editable text or page images that preserve appearance.',
+    'Keep scanned and redacted pages as images when OCR is unavailable.',
+    'Convert locally while keeping your PDF and its edit history unchanged.',
+  ],
   '0.9.0': [
     'Mark page areas, review them, then apply secure redaction.',
     'Create a fresh image-only PDF with marked pixels removed.',

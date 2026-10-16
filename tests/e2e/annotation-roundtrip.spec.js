@@ -25,7 +25,7 @@ async function exported(page) {
 }
 
 test('saved Studio notes and markup reopen, merge by selected page, and export without duplicates', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
   await page.goto('/');
   await page.getByLabel('Open or merge PDFs').setInputFiles({ name: 'saved.pdf', mimeType: 'application/pdf', buffer: await fixture() });
   await expect(page.getByLabel('Page comments')).toContainText('Résumé 日本語 saved note');

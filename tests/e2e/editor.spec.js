@@ -4,7 +4,7 @@ const { PDFDocument, StandardFonts, PDFDict, PDFName } = createRequire(import.me
 import { readFile } from 'node:fs/promises';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
 });
 
 async function fixture(name, sizes) {

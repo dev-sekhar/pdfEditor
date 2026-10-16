@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 const { PDFDocument } = createRequire(import.meta.url)('pdf-lib');
 
 test('click placement, drag, keyboard positioning and history survive zoom and rotation', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.9.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
   await page.goto('/');
   const pdf = await PDFDocument.create(); pdf.addPage([600, 800]);
   await page.getByLabel('Open or merge PDFs').setInputFiles({ name: 'blank.pdf', mimeType: 'application/pdf', buffer: Buffer.from(await pdf.save()) });

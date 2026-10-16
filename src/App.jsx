@@ -26,6 +26,8 @@ import RedactionLayer from './RedactionLayer';
 import RedactionControls from './RedactionControls';
 import RedactionDialog from './RedactionDialog';
 import { redactToImagePdf } from './redaction';
+import WordExportDialog from './WordExportDialog';
+import { saveWord } from './save-word';
 
 export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, createHistory);
@@ -44,6 +46,11 @@ export default function App() {
   const [savedBytes, setSavedBytes] = useState(null);
   const [currentPath, setCurrentPath] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
+  const [wordExportOpen, setWordExportOpen] = useState(false);
+  const [wordExportProgress, setWordExportProgress] = useState('');
+  const [wordExportSaving, setWordExportSaving] = useState(false);
+  const wordSaveStarted = useRef(false);
+  const wordExportController = useRef(null);
   const documentName = useRef('edited.pdf');
   const live = useRef({});
   const [redactionMarks, setRedactionMarks] = useState([]);
@@ -183,6 +190,40 @@ export default function App() {
     });
   }
 
+  async function exportWord(mode) {
+    await perform(async () => {
+      if (redactionMarks.length) throw new Error('Apply or clear pending redaction areas before exporting to Word.');
+      if (!bytes || !pages.length) throw new Error('Open a PDF before exporting to Word.');
+      const controller = new AbortController();
+      wordExportController.current = controller;
+      setWordExportProgress('Preparing Word export…');
+      try {
+        const { exportPdfToWord } = await import('./word-export');
+        const converted = await exportPdfToWord(bytes, { mode, signal: controller.signal,
+          onProgress: progress => setWordExportProgress(`Converting page ${progress.completed} of ${progress.total}…`),
+        });
+        if (controller.signal.aborted) {
+          setWordExportProgress('Word export cancelled. Your PDF is unchanged.'); return;
+        }
+        const name = documentName.current.replace(/\.pdf$/i, '') + '.docx';
+        wordSaveStarted.current = true; setWordExportSaving(true);
+        setWordExportProgress('Choose where to save your Word document. Use the Save As dialog to cancel.');
+        const result = await saveWord(converted.bytes, name);
+        if (result.kind === 'cancelled') {
+          setWordExportProgress('Word export cancelled. Your PDF is unchanged.'); return;
+        }
+        const status = result.kind === 'saved' ? `Word document saved: ${result.path}` : 'Word document download started.';
+        setSaveStatus([status, ...converted.warnings].join(' '));
+        // Word export is a separate copy. Keep the PDF path, saved baseline,
+        // editable annotations, selection, and Undo/Redo history unchanged.
+        setWordExportOpen(false);
+      } catch (cause) {
+        if (controller.signal.aborted) setWordExportProgress('Word export cancelled. Your PDF is unchanged.');
+        else throw cause;
+      } finally { wordExportController.current = null; wordSaveStarted.current = false; setWordExportSaving(false); }
+    });
+  }
+
   function requestAction(action) {
     if (busyRef.current) return;
     if (dirty) setPendingAction(() => action);
@@ -206,7 +247,7 @@ export default function App() {
     });
   }
 
-  live.current = { dirty, pendingAction: Boolean(pendingAction) || redactionDialog, requestAction, save };
+  live.current = { dirty, pendingAction: Boolean(pendingAction) || redactionDialog || wordExportOpen, requestAction, save };
   useEffect(() => {
     const beforeUnload = event => { if (live.current.dirty || busyRef.current) { event.preventDefault(); event.returnValue = ''; } };
     const shortcut = event => {
@@ -331,6 +372,10 @@ export default function App() {
           <input type="file" aria-label="Open or merge PDFs" accept=".pdf" multiple disabled={editLocked}
             onChange={event => { const files = Array.from(event.target.files); event.target.value = ''; if (!files.length) return; if (pages.length) setPendingFiles(files); else open(files, 0); }} />
         </label>
+        <button disabled={editLocked || !pages.length} onClick={() => {
+          if (redactionMarks.length) { setError('Apply or clear pending redaction areas before exporting to Word.'); return; }
+          setError(''); setWordExportProgress(''); setPlacingText(false); setWordExportOpen(true);
+        }}>Export to Word</button>
         <button aria-label="Save PDF" disabled={editLocked || !pages.length} onClick={() => save(false, false)}>Save</button>
         <button aria-label="Save As / Export PDF" disabled={editLocked || !pages.length} onClick={() => save()}>↓ Save As…</button>
       </div>
@@ -450,6 +495,10 @@ export default function App() {
     {redactionDialog && <RedactionDialog count={redactionMarks.length} pages={pages.length} busy={busy}
       error={error} progress={redactionProgress} onApply={applyRedactions}
       onCancel={() => { if (busy) redactionController.current?.abort(); else setRedactionDialog(false); }} />}
+    {wordExportOpen && <WordExportDialog busy={busy} saving={wordExportSaving} error={error} progress={wordExportProgress}
+      onExport={exportWord} onCancel={() => {
+        if (wordSaveStarted.current) return; if (busy) wordExportController.current?.abort(); else setWordExportOpen(false);
+      }} />}
     <footer><span>PDF Studio {APP_VERSION} · Page {pages.length ? index + 1 : 0} of {pages.length} · Up to 30 undo steps this session</span>
       <ReleaseNotes />
     </footer>
