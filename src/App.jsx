@@ -27,6 +27,8 @@ import RedactionControls from './RedactionControls';
 import RedactionDialog from './RedactionDialog';
 import { redactToImagePdf } from './redaction';
 import WordExportDialog from './WordExportDialog';
+import FormsPanel from './FormsPanel';
+import { modifyForm } from './forms';
 import { saveWord } from './save-word';
 
 export default function App() {
@@ -144,6 +146,24 @@ export default function App() {
         setCurrentPath(null); documentName.current = files.length === 1 ? files[0].name : 'edited.pdf';
         if (files.length === 1) setSavedBytes(nextBytes);
       }
+    });
+  }
+
+  async function applyFormOperation(operation) {
+    if (!bytes || redactionMarks.length) throw new Error('Open a PDF and clear pending redactions before editing forms.');
+    await perform(async () => {
+      const updated = await modifyForm(bytes, operation);
+      // The current PDF bytes contain all applied annotations and form widgets.
+      // Store that PDF as the new source rather than copying its pages; copying
+      // would detach AcroForm field dictionaries from their widget annotations.
+      const nextPages = pages.map((page, pageIndex) => ({
+        id: page.id, source: 0, index: pageIndex, rotation: 0, annotations: [],
+      }));
+      dispatch({ type: 'commit', document: {
+        sources: [{ name: documentName.current, bytes: updated }], pages: nextPages,
+        index, bytes: updated, label: operation.action === 'create' ? 'Create form field' :
+          operation.action === 'edit' ? 'Edit form field' : 'Fill form field',
+      } });
     });
   }
 
@@ -458,6 +478,7 @@ export default function App() {
           </div>}
       </section>
       <aside className="text-sidebar">
+        <FormsPanel bytes={bytes} pageIndex={index} disabled={editLocked || !pages.length} onModify={applyFormOperation} />
         <RedactionControls marking={markingRedactions} disabled={busy || !pages.length}
           marks={redactionMarks.filter(mark => mark.pageId === pages[index]?.id)} totalMarks={redactionMarks.length}
           onMarkingChange={value => { setMarkingRedactions(value); if (value) setPlacingText(false); }}
