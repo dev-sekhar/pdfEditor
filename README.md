@@ -2,6 +2,16 @@
 
 Local-first hybrid PDF editor. React + PDF.js viewer + pdf-lib editing engine, with Tauri 2 desktop wrapper.
 
+## Interactive PDF forms (development branch)
+
+PDF Studio now includes a **PDF forms** panel. Choose an existing field to fill text, checkboxes, radio choices, dropdowns, or list selections and apply the change. You can edit simple field names, required flags, single-widget positions and sizes, and dropdown/list choices. Select **Create field** to add text, checkbox, radio, dropdown, or list fields, specifying a field name and PDF-point rectangle (origin at the bottom-left).
+
+All operations modify real AcroForm dictionaries, and fields stay interactive when saved and reopened. Undo/redo stores the previous PDF bytes. This is not an XFA editor or a full Acrobat form designer: nested-field renaming, JavaScript validation, form calculations, page labels printed in content, radio option editing, and multi-widget geometry changes are not supported.
+
+**Document-safety restriction:** PDF page copying can detach AcroForm widgets from their fields. Until that operation is implemented in a form-aware manner, PDF Studio refuses merge, extract, delete, and rearrange operations involving form PDFs when they would alter the original page sequence, instead of silently stripping fields. To rearrange such a PDF, first create and retain a separate flattened copy in a capable PDF tool. Form fields are preserved when the original page sequence is left intact. Secure redaction deliberately rasterizes and removes all forms.
+
+Forms are tested using synthetic editable PDFs. Test real third-party forms, non-Latin field values, and Windows-native rendering before relying on this build for important documents.
+
 ## Run web
 Node 22+: `npm install`, `npm test`, `npm run dev`.
 
