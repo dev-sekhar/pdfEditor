@@ -23,7 +23,8 @@ function requireRect(rect, page) {
 function fieldValue(field, type) {
   if (type === 'text') return field.getText() ?? '';
   if (type === 'checkbox') return field.isChecked();
-  if (type === 'radio' || type === 'dropdown') return field.getSelected?.() ?? '';
+  if (type === 'radio') return field.getSelected?.() ?? '';
+  if (type === 'dropdown') return field.getSelected?.()[0] ?? '';
   if (type === 'list') return field.getSelected?.() ?? [];
   return null;
 }
