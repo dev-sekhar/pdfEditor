@@ -4,12 +4,20 @@ import { exportMarkup } from './markup';
 import { exportComments } from './comments';
 
 export async function assemble(sources, pages, overlay) {
-  const out = await PDFDocument.create();
   const docs = await Promise.all(sources.map(source => PDFDocument.load(source.bytes)));
-  for (const record of pages) {
-    const [page] = await out.copyPages(docs[record.source], [record.index]);
-    page.setRotation(degrees((page.getRotation().angle + record.rotation) % 360));
-    out.addPage(page);
+  const formSources = docs.filter(doc => doc.getForm().getFields().length > 0);
+  const preserveOriginal = sources.length === 1 && pages.length === docs[0].getPageCount() &&
+    pages.every((record, position) => record.source === 0 && record.index === position && record.rotation === 0);
+  if (formSources.length && !preserveOriginal) {
+    throw new Error('Form fields cannot safely survive page copying/reordering in this version. Work with the original page sequence or a separately flattened copy.');
+  }
+  const out = preserveOriginal ? docs[0] : await PDFDocument.create();
+  for (const [position, record] of pages.entries()) {
+    const page = preserveOriginal ? out.getPage(position) : (await out.copyPages(docs[record.source], [record.index]))[0];
+    if (!preserveOriginal) {
+      page.setRotation(degrees((page.getRotation().angle + record.rotation) % 360));
+      out.addPage(page);
+    }
     exportMarkup(out, page, record.annotations);
     exportComments(out, page, record.annotations);
     await drawTextOverlays(out, page, record.annotations);
