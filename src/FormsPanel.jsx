@@ -85,7 +85,7 @@ export default function FormsPanel({ bytes, pageIndex, disabled, onModify }) {
           : active.type === 'list'
             ? <label>Value<select aria-label="Form field value" value={Array.isArray(draft.value) ? draft.value[0] || '' : draft.value || ''} onChange={e => update('value', [e.target.value])}><option value="">Choose…</option>{active.options.map(x => <option key={x} value={x}>{x}</option>)}</select></label>
             : <label>Value<input aria-label="Form field value" value={draft.value ?? ''} onChange={e => update('value', e.target.value)} /></label>)}
-      <button className="primary" disabled={disabled || active?.readOnly} onClick={apply}>Apply form change</button>
+      <button className="primary" disabled={disabled || active?.readOnly || active?.type === 'unsupported'} onClick={apply}>Apply form change</button>
     </>}
     {error && <p className="error" role="alert">{error}</p>}
   </section>;

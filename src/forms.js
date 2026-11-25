@@ -1,13 +1,11 @@
-import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFString, PDFTextField, PDFCheckBox, PDFRadioGroup, PDFDropdown, PDFOptionList } from 'pdf-lib';
 import { formDiagnostics, requireEditableForm } from './form-diagnostics';
 
-const TYPES = {
-  PDFTextField: 'text', PDFCheckBox: 'checkbox',
-  PDFRadioGroup: 'radio', PDFDropdown: 'dropdown',
-  PDFOptionList: 'list',
-};
+const TYPES = [[PDFTextField, 'text'], [PDFCheckBox, 'checkbox'],
+  [PDFRadioGroup, 'radio'], [PDFDropdown, 'dropdown'], [PDFOptionList, 'list']];
 
-function kind(field) { return TYPES[field.constructor.name] ?? 'unsupported'; }
+// Bundlers rename classes; constructor.name is not a stable PDF field type.
+function kind(field) { return TYPES.find(([Type]) => field instanceof Type)?.[1] ?? 'unsupported'; }
 function requireName(name) {
   if (typeof name !== 'string' || !name.trim() || name.length > 120 || /[\x00-\x1f]/.test(name)) {
     throw new Error('Field name must contain 1–120 printable characters.');

@@ -44,8 +44,10 @@ test('AcroForm values update, remain selected, render and export interactively',
   await upload(page, doc);
   await expect(page.getByLabel('Form diagnosis')).toContainText('AcroForm');
   await page.getByLabel('Existing form field').selectOption('patient.name');
+  await expect(page.getByRole('button', { name: 'Fill', exact: true })).toBeEnabled();
   await page.getByLabel('Form field value', { exact: true }).fill('Alex Patient');
   await page.getByRole('button', { name: 'Apply form change' }).click();
+  await expect(page.getByRole('button', { name: 'Undo Fill form field', exact: true })).toBeEnabled();
   await expect(page.getByLabel('Form field value', { exact: true })).toHaveValue('Alex Patient');
   await expect(page.locator('[aria-label="Selected page"] canvas')).toBeVisible();
   const waiting = page.waitForEvent('download'); await page.getByRole('button', { name: 'Save PDF', exact: true }).click();
