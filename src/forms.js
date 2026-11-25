@@ -46,10 +46,62 @@ export async function inspectForms(bytes) {
       name: field.getName(), type, value: fieldValue(field, type),
       required: field.isRequired(),
       readOnly: field.isReadOnly(),
+      multiline: type === 'text' && field.isMultiline(),
+      combed: type === 'text' && field.isCombed(),
+      multiselect: type === 'list' && field.isMultiselect(),
+      maxLength: type === 'text' ? field.getMaxLength() : undefined,
       options: type === 'radio' || type === 'dropdown' || type === 'list' ? field.getOptions() : [],
       widgets: widgetLocations(doc, field),
     };
   });
+}
+
+export async function fillFormValues(bytes, values) {
+  const doc = await PDFDocument.load(bytes);
+  requireEditableForm(doc);
+  const form = doc.getForm();
+  for (const [name,value] of Object.entries(values)) {
+    const field = form.getField(name), type = kind(field);
+    if (field.isReadOnly()) throw new Error(`${name} is read-only.`);
+    if (type === 'text') field.setText(String(value ?? ''));
+    else if (type === 'checkbox') value ? field.check() : field.uncheck();
+    else if (['radio','dropdown','list'].includes(type)) {
+      const list = Array.isArray(value) ? value : value ? [String(value)] : [];
+      if (list.some(item => !field.getOptions().includes(item))) throw new Error(`Invalid choice for ${name}.`);
+      if (!list.length) field.clear();
+      else field.select(type === 'list' ? list : list[0]);
+    } else throw new Error(`${name} cannot be filled.`);
+    field.defaultUpdateAppearances(await form.getDefaultFont());
+  }
+  form.acroForm.dict.set(PDFName.of('NeedAppearances'), doc.context.obj(false));
+  return new Uint8Array(await doc.save({updateFieldAppearances:false}));
+}
+
+export async function createDetectedFields(bytes, proposals) {
+  const doc = await PDFDocument.load(bytes);
+  requireEditableForm(doc);
+  const form = doc.getForm(), names = new Set(form.getFields().map(field=>field.getName()));
+  const existing=form.getFields().flatMap(field=>widgetLocations(doc,field));
+  if (!Array.isArray(proposals) || !proposals.length || proposals.length > 500) throw new Error('Select between 1 and 500 proposed fields.');
+  for (const proposal of proposals) {
+    const page = doc.getPage(proposal.pageIndex);
+    if (!page) throw new Error('Invalid field page.');
+    requireRect(proposal.rect,page);
+    if (!['text','checkbox'].includes(proposal.type)) throw new Error('Unsupported detected field type.');
+    const r=proposal.rect;
+    if (existing.some(w=>w.pageIndex===proposal.pageIndex && Math.min(w.rect.x+w.rect.width,r.x+r.width)>Math.max(w.rect.x,r.x)+1 && Math.min(w.rect.y+w.rect.height,r.y+r.height)>Math.max(w.rect.y,r.y)+1)) throw new Error('A proposed field overlaps an existing field. Deselect it and retry.');
+    let serial=1,name;
+    do { name=`Detected_p${proposal.pageIndex+1}_${proposal.type}_${serial++}`; } while(names.has(name));
+    names.add(name);
+    const field=proposal.type==='checkbox'?form.createCheckBox(name):form.createTextField(name);
+    if(proposal.type==='text'&&!proposal.comb&&r.height>24)field.enableMultiline();
+    if (proposal.comb) { field.setMaxLength(proposal.comb); field.enableCombing(); }
+    field.addToPage(page,{...r,borderWidth:0,backgroundColor:undefined,borderColor:undefined});
+    existing.push({pageIndex:proposal.pageIndex,rect:r});
+    field.defaultUpdateAppearances(await form.getDefaultFont());
+  }
+  form.acroForm.dict.set(PDFName.of('NeedAppearances'),doc.context.obj(false));
+  return new Uint8Array(await doc.save({updateFieldAppearances:false}));
 }
 export async function hasFormFields(bytes) {
   const doc = await PDFDocument.load(bytes);

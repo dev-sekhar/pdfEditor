@@ -28,7 +28,11 @@ import RedactionDialog from './RedactionDialog';
 import { redactToImagePdf } from './redaction';
 import WordExportDialog from './WordExportDialog';
 import FormsPanel from './FormsPanel';
-import { modifyForm } from './forms';
+import { modifyForm, inspectForms, diagnoseForms, fillFormValues, createDetectedFields } from './forms';
+import { OPS } from 'pdfjs-dist';
+import LiveFormLayer from './LiveFormLayer';
+import FieldRecognitionLayer from './FieldRecognitionLayer';
+import { recognizePageFields } from './field-recognition';
 import { saveWord } from './save-word';
 import InlineTextLayer from './InlineTextLayer';
 import FillFormLayer from './FillFormLayer';
@@ -43,6 +47,13 @@ export default function App() {
   const [placingText, setPlacingText] = useState(false);
   const [editingExisting, setEditingExisting] = useState(false);
   const [fillingForm, setFillingForm] = useState(false);
+  const [recognition,setRecognition] = useState(null);
+  const [canUseLiveFields,setCanUseLiveFields]=useState(false);
+  const [formEdits,setFormEdits] = useState({past:[],values:{},future:[]});
+  const formEditsRef=useRef(formEdits);formEditsRef.current=formEdits;
+  const hasFormDrafts=Object.keys(formEdits.values).length>0;
+  const clearFormEdits=()=>setFormEdits({past:[],values:{},future:[]});
+  function changeFormValue(name,value,original){setFormEdits(old=>{const values={...old.values};if(JSON.stringify(value)===JSON.stringify(original))delete values[name];else values[name]=value;return {past:[...old.past,old.values].slice(-30),values,future:[]};});}
   const [textStyle, setTextStyle] = useState(DEFAULT_TEXT_STYLE);
   const [textStyleValid, setTextStyleValid] = useState(true);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
@@ -68,7 +79,7 @@ export default function App() {
   const redactionLocked = useRef(false);
   redactionLocked.current = markingRedactions || redactionMarks.length > 0 || redactionDialog;
   const editLocked = busy || redactionLocked.current;
-  const dirty = bytes !== savedBytes || redactionMarks.length > 0;
+  const dirty = bytes !== savedBytes || redactionMarks.length > 0 || hasFormDrafts;
   const [zoom, setZoom] = useState('fit-width');
   const [displayZoom, setDisplayZoom] = useState(100);
   const [saveStatus, setSaveStatus] = useState('');
@@ -79,15 +90,21 @@ export default function App() {
   const sidebar = useRef(null);
   const viewport = useRef(null);
   const preview = usePreviewDocument(bytes);
-  const canUndo = history.past.length > 0;
-  const canRedo = history.future.length > 0;
+  const canUndo = history.past.length > 0 || formEdits.past.length > 0;
+  const canRedo = history.future.length > 0 || formEdits.future.length > 0;
 
   useEffect(() => setSelection(null), [index, bytes]);
+  useEffect(()=>setRecognition(null),[index,bytes]);
+  useEffect(()=>{let active=true;setCanUseLiveFields(false);if(bytes)inspectForms(bytes).then(fields=>{if(active)setCanUseLiveFields(fields.length>0&&fields.every(field=>field.type!=='unsupported'));}).catch(()=>{});return()=>{active=false;};},[bytes]);
   useEffect(() => { setPlacingText(false); setSelectedAnnotationId(null); }, [pages[index]?.id]);
   useEffect(() => { if (!textStyleValid) setPlacingText(false); }, [textStyleValid]);
 
   const navigateHistory = useCallback(type => {
     if (busyRef.current || redactionLocked.current) return;
+    const edits=formEditsRef.current;
+    if(type==='undo'&&edits.past.length){setFormEdits({past:edits.past.slice(0,-1),values:edits.past.at(-1),future:[edits.values,...edits.future]});return;}
+    if(type==='redo'&&edits.future.length){setFormEdits({past:[...edits.past,edits.values],values:edits.future[0],future:edits.future.slice(1)});return;}
+    setFormEdits({past:[],values:{},future:[]});
     dispatch({ type });
     setError('');
     setSaveStatus('');
@@ -157,7 +174,9 @@ export default function App() {
   async function applyFormOperation(operation) {
     if (!bytes || redactionMarks.length) throw new Error('Open a PDF and clear pending redactions before editing forms.');
     await perform(async () => {
-      const updated = await modifyForm(bytes, operation);
+      const base=hasFormDrafts?await fillFormValues(bytes,formEdits.values):bytes;
+      const updated = await modifyForm(base, operation);
+      clearFormEdits();
       // The current PDF bytes contain all applied annotations and form widgets.
       // Store that PDF as the new source rather than copying its pages; copying
       // would detach AcroForm field dictionaries from their widget annotations.
@@ -175,15 +194,39 @@ export default function App() {
   async function applyInlineEdit(run, value) {
     if (editLocked || !bytes) return;
     await perform(async () => {
-      const updated = await replaceInlineText(bytes, index, run.id, run.text, value);
+      const base=hasFormDrafts?await fillFormValues(bytes,formEdits.values):bytes;
+      const updated = await replaceInlineText(base, index, run.id, run.text, value);
       const imported = await importStudioAnnotations(updated);
       const nextPages = pages.map((page, i) => ({ id: page.id, source: 0, index: i, rotation: 0, annotations: imported.annotations[i] }));
       await commit([{ name: documentName.current, bytes: imported.bytes }], nextPages, index, 'Edit existing text');
+      clearFormEdits();
     });
   }
 
   function change(nextPages, nextIndex, label) {
     void perform(() => commit(sources, nextPages, nextIndex, label));
+  }
+
+  async function detectFields(onlyIfEmpty=false){
+    await perform(async()=>{
+      const info=await diagnoseForms(bytes);if(info.protected)throw new Error(info.message);
+      const fields=await inspectForms(bytes);
+      setFillingForm(false);setEditingExisting(false);setPlacingText(false);
+      setRecognition(null);
+      if(onlyIfEmpty&&fields.some(field=>field.widgets.some(widget=>widget.pageIndex===index)))return;
+      const existing=fields.flatMap(f=>f.widgets).filter(w=>w.pageIndex===index);
+      const proposals=await recognizePageFields(preview.pdf,index,OPS,existing);
+      if(!proposals.length)throw new Error('No likely blank fields found. Detection currently uses vector boxes and lines; it cannot recognize every layout or scanned form.');
+      setRecognition(proposals);
+    });
+  }
+  async function acceptFields(proposals){
+    await perform(async()=>{
+      const base=hasFormDrafts?await fillFormValues(bytes,formEdits.values):bytes;
+      const updated=await createDetectedFields(base,proposals);
+      dispatch({type:'commit',document:{sources:[{name:documentName.current,bytes:updated}],pages:pages.map((p,i)=>({...p,source:0,index:i,rotation:0,annotations:[]})),index,bytes:updated,label:'Recognize form fields'}});
+      clearFormEdits();setRecognition(null);setFillingForm(false);
+    });
   }
 
   function addComment(content) {
@@ -211,12 +254,17 @@ export default function App() {
   async function save(extract = false, saveAs = true) {
     return perform(async () => {
       if (redactionMarks.length) throw new Error('Apply or clear pending redaction areas before saving.');
-      const output = extract ? await assemble(sources, [pages[index]]) : bytes;
+      if(extract&&hasFormDrafts)throw new Error('Save the filled document before extracting a page.');
+      const output = extract ? await assemble(sources, [pages[index]]) : hasFormDrafts?await fillFormValues(bytes,formEdits.values):bytes;
       if (!output) throw new Error('There are no pages to save. Undo the deletion or discard changes.');
       const result = await savePdf(output, extract ? 'page.pdf' : documentName.current, !extract && !saveAs ? currentPath : null);
+      if(!extract&&hasFormDrafts&&result.kind!=='cancelled'){
+        dispatch({type:'commit',document:{sources:[{name:documentName.current,bytes:output}],pages:pages.map((p,i)=>({...p,source:0,index:i,rotation:0,annotations:[]})),index,bytes:output,label:'Fill form fields'}});
+        clearFormEdits();
+      }
       if (result.kind === 'saved') {
         setSaveStatus(`Saved: ${result.path}`);
-        if (!extract) { setSavedBytes(bytes); setCurrentPath(result.path); }
+        if (!extract) { setSavedBytes(output); setCurrentPath(result.path); }
         return true;
       }
       if (result.kind === 'downloaded') setSaveStatus('PDF download started; completion cannot be confirmed.');
@@ -234,7 +282,8 @@ export default function App() {
       setWordExportProgress('Preparing Word export…');
       try {
         const { exportPdfToWord } = await import('./word-export');
-        const converted = await exportPdfToWord(bytes, { mode, signal: controller.signal,
+        const exportBytes=hasFormDrafts?await fillFormValues(bytes,formEdits.values):bytes;
+        const converted = await exportPdfToWord(exportBytes, { mode, signal: controller.signal,
           onProgress: progress => setWordExportProgress(`Converting page ${progress.completed} of ${progress.total}…`),
         });
         if (controller.signal.aborted) {
@@ -278,7 +327,7 @@ export default function App() {
       const nextBytes = await assemble(nextSources, nextPages);
       dispatch({ type: 'replace', document: { sources: nextSources, pages: nextPages, index: 0, bytes: nextBytes, label: 'Open document' } });
       setSavedBytes(nextBytes); setCurrentPath(null); documentName.current = file.name;
-      setText(''); setPendingFiles(null); setRedactionMarks([]); setMarkingRedactions(false);
+      setText(''); setPendingFiles(null); setRedactionMarks([]); setMarkingRedactions(false);clearFormEdits();
     });
   }
 
@@ -332,7 +381,8 @@ export default function App() {
         const marks = redactionMarks.map(mark => ({
           page: pages.findIndex(page => page.id === mark.pageId), rect: mark.rect,
         }));
-        const nextBytes = await redactToImagePdf(bytes, marks, {
+        const redactionBytes=hasFormDrafts?await fillFormValues(bytes,formEdits.values):bytes;
+        const nextBytes = await redactToImagePdf(redactionBytes, marks, {
           signal: controller.signal,
           onProgress: progress => setRedactionProgress(`Processing page ${progress.completed} of ${progress.total}…`),
         });
@@ -350,7 +400,7 @@ export default function App() {
         documentName.current = documentName.current.replace(/\.pdf$/i, '').replace(/-redacted$/, '') + '-redacted.pdf';
         setRedactionMarks([]); setMarkingRedactions(false); setRedactionDialog(false);
         setPendingAction(null); setPendingFiles(null); setSelection(null);
-        setSelectedAnnotationId(null); setPlacingText(false); setText('');
+        setSelectedAnnotationId(null); setPlacingText(false); setText('');clearFormEdits();
         setSaveStatus('Redactions applied. Undo history cleared. Save the image-only copy as a new file.');
       } catch (cause) {
         if (controller.signal.aborted) setRedactionProgress('Redaction cancelled. Your document and marks are unchanged.');
@@ -391,8 +441,8 @@ export default function App() {
     change(nextPages, nextPages.findIndex(page => page.id === sourceId), 'Move page');
   }
 
-  const undoLabel = canUndo ? `Undo ${history.present.label}` : 'Undo';
-  const redoLabel = canRedo ? `Redo ${history.future[0].label}` : 'Redo';
+  const undoLabel = formEdits.past.length?'Undo form entry':canUndo ? `Undo ${history.present.label}` : 'Undo';
+  const redoLabel = formEdits.future.length?'Redo form entry':canRedo ? `Redo ${history.future[0].label}` : 'Redo';
 
   return <div className="app" aria-busy={busy}>
     <header>
@@ -422,7 +472,9 @@ export default function App() {
         onClick={() => navigateHistory('redo')}>↷ Redo</button>
       <span className="tool-divider" />
       <button disabled={editLocked || !pages.length} aria-pressed={editingExisting} onClick={() => { setEditingExisting(value => !value); setFillingForm(false); setPlacingText(false); }}>Edit existing text</button>
-      <button disabled={editLocked || !pages.length} aria-pressed={fillingForm} onClick={() => { setFillingForm(value => !value); setEditingExisting(false); setPlacingText(false); }}>Fill form</button>
+      <button disabled={editLocked || !preview.pdf} onClick={()=>detectFields(true)}>Fill form</button>
+      <button disabled={editLocked || !preview.pdf} onClick={()=>detectFields()}>Recognize form fields</button>
+      <button disabled={editLocked || !pages.length} aria-pressed={fillingForm} onClick={() => { setFillingForm(value => !value); setEditingExisting(false); setPlacingText(false); }}>Free text fill</button>
       <button disabled={editLocked || !pages.length || index === 0}
         onClick={() => change(move(pages, index, index - 1), index - 1, 'Move page')}>↑ Move</button>
       <button disabled={editLocked || !pages.length || index === pages.length - 1}
@@ -447,6 +499,7 @@ export default function App() {
       <span className="zoom-value">{pages.length ? `${displayZoom}%` : ''}</span>
       <span className="save-status" role="status">{saveStatus}</span>
       <span className="document-status" role="status">{dirty ? 'Unsaved changes' : 'No unsaved changes'}</span>
+      {hasFormDrafts&&<span role="status">Form values pending — Save PDF to write them.</span>}
     </div>
     <main>
       <aside ref={sidebar} className="pages-sidebar" aria-label="Page thumbnails">
@@ -478,8 +531,10 @@ export default function App() {
       <section ref={viewport} aria-label="Selected page">
         {(error || preview.error) && <p className="error" role="alert">{error || preview.error}</p>}
         {bytes ? (preview.pdf ? <PageCanvas key={`${preview.id}-${index}`} pdf={preview.pdf} index={index}
-          zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} onSelection={setSelection}
+          zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} onSelection={setSelection} interactiveFields={canUseLiveFields&&!fillingForm&&!editingExisting&&!markingRedactions&&!placingText&&!recognition}
           renderOverlay={pageViewport => <>
+            {recognition&&<FieldRecognitionLayer proposals={recognition} viewport={pageViewport} disabled={editLocked} onAccept={acceptFields} onCancel={()=>setRecognition(null)}/>}
+            {canUseLiveFields&&!recognition&&!fillingForm&&!editingExisting&&!markingRedactions&&!placingText&&<LiveFormLayer bytes={bytes} pageIndex={index} viewport={pageViewport} values={formEdits.values} onChange={changeFormValue} disabled={editLocked}/>}
             {fillingForm && !placingText && !markingRedactions && <FillFormLayer key={pages[index]?.id} bytes={bytes} viewport={pageViewport} annotations={pages[index]?.annotations} disabled={editLocked} onApply={async entry=>{
               await perform(async()=>{
                 const nextPages=entry.id?editPageAnnotation(pages,pages[index].id,entry.id,entry):pages.map((page,i)=>i===index?{...page,annotations:[...(page.annotations||[]),{...entry,id:crypto.randomUUID(),type:'text'}]}:page);
@@ -503,7 +558,7 @@ export default function App() {
           </div>}
       </section>
       <aside className="text-sidebar">
-        <FormsPanel bytes={bytes} pageIndex={index} disabled={editLocked || !pages.length} onModify={applyFormOperation} onFillPrinted={()=>{setFillingForm(true);setEditingExisting(false);setPlacingText(false);}} />
+        <FormsPanel bytes={bytes} pageIndex={index} disabled={editLocked || !pages.length} onModify={applyFormOperation} onFillPrinted={()=>detectFields(true)} />
         <RedactionControls marking={markingRedactions} disabled={busy || !pages.length}
           marks={redactionMarks.filter(mark => mark.pageId === pages[index]?.id)} totalMarks={redactionMarks.length}
           onMarkingChange={value => { setMarkingRedactions(value); if (value) setPlacingText(false); }}

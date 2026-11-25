@@ -153,6 +153,26 @@ Export uses only the current PDF bytes, including current page edits and applied
 The cloud workflow additionally renders synthetic DOCX export samples in LibreOffice and verifies pagination, with page PNGs retained for visual QA. This complements the DOCX XML/image checks and Windows browser/native build checks. Conversion supports up to 200 pages, 100 MiB of PDF input, 2 million extracted characters, 16 million pixels per rendered page and 128 million rendered pixels in total; failures do not produce a partial export.
 # Native text editing and claims-form diagnostics (dev milestone)
 
+## Interactive form filling in 0.12
+
+Choose **Fill form**. Existing supported fields are highlighted and accept direct
+typing, checkbox clicks and Tab navigation on the selected page. No per-field
+Apply box is required. Edits remain pending until **Save PDF**, which writes the
+values and appearance streams while keeping the form interactive. Pending edits
+participate in Undo/Redo, unsaved-change protection and Word export.
+
+On a printed vector form, **Fill form** recognizes likely blank boxes, character
+boxes, table cells and ruled blanks on the current page. Review the highlighted
+proposals, click any unwanted proposal to exclude it, then choose **Create
+interactive fields**. Recognition does not silently change the PDF. Repeated
+recognition excludes existing fields. Navigate to another page to prepare it.
+
+Detection is heuristic, using vector geometry and rendered blankness. It does
+not OCR scanned pages or outlined labels, assign semantic names, infer Yes/No
+radio groups, run calculations, or provide signatures or XFA support. Review is
+necessary; missed areas can still be added using Create field. **Free text fill**
+retains the earlier overlay workflow and is labeled separately.
+
 Use **Edit existing text**, click a supported text run on the page, change its
 value and apply. The PDF text-show instruction is replaced; there is no white
 rectangle or replacement overlay. Undo/Redo and Save retain the change.
@@ -185,11 +205,11 @@ Only the changed field's appearance is regenerated. Untouched custom/embedded
 font appearances are preserved. The changed field currently uses Helvetica:
 unsupported Unicode raises an error and commits no change. JavaScript actions,
 calculations, XFA execution, and full field-formatting fidelity are unsupported.
-Field values are edited from the forms panel; on-page widgets are rendered in
-the preview, not live browser form controls. Page copying/reordering/rotation
+Supported field values can be edited directly on the page or from the forms
+panel. Unsupported widget types retain their normal preview. Page copying/reordering/rotation
 with forms remains blocked to prevent field loss.
 
-**Fill form** works on printed tables and outlined/scanned layouts without
+**Free text fill** works on printed tables and outlined/scanned layouts without
 requiring original fields. Select Text or Mark checkbox (X), choose a size,
 click a blank space, type, and Apply entry. Click an entry's Edit button to
 revise it during the session. Undo/Redo and Save preserve the visible entries.

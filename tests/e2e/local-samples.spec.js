@@ -15,7 +15,7 @@ async function save(page,name) {
   }
   return new Uint8Array(await readFile(file));
 }
-test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.setItem('pdf-studio-release-seen','0.11.0'));await page.goto('/');});
+test.beforeEach(async({page})=>{await page.addInitScript(()=>localStorage.setItem('pdf-studio-release-seen','0.12.0'));await page.goto('/');});
 test('local carousel keeps embedded fonts and graphics when native text is replaced',async({page})=>{
   test.skip(!carousel,'Set PDF_EDITOR_CAROUSEL to a local PDF. No sample is uploaded to GitHub.');
   await page.getByLabel('Open or merge PDFs').setInputFiles(carousel);
@@ -36,7 +36,7 @@ test('local printed questionnaire supports click-to-type and checkbox marks on b
   test.skip(!printed,'Set PDF_EDITOR_PRINTED_FORM to a local PDF. No sample is uploaded to GitHub.');
   await page.getByLabel('Open or merge PDFs').setInputFiles(printed);
   await expect(page.getByLabel('Form diagnosis')).toContainText('No interactive fields');
-  await page.getByRole('button',{name:'Fill form',exact:true}).click();
+  await page.getByRole('button',{name:'Free text fill',exact:true}).click();
   const layer=page.getByLabel('Fill printed form',{exact:true});
   await expect(layer.getByRole('status')).toContainText('Click a blank space');
   // Coordinates in the PDF's original view; no actual personal information.

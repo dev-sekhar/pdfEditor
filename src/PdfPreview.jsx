@@ -31,7 +31,7 @@ export function usePreviewDocument(bytes) {
 }
 
 export const PageCanvas = memo(function PageCanvas({ pdf, index, thumbnail = false, scrollRoot,
-  zoom = 100, viewportRef, onScale, onSelection, onViewport, renderOverlay }) {
+  zoom = 100, viewportRef, onScale, onSelection, onViewport, renderOverlay, interactiveFields = false }) {
   const canvas = useRef(null);
   const container = useRef(null);
   const textContainer = useRef(null);
@@ -114,6 +114,7 @@ export const PageCanvas = memo(function PageCanvas({ pdf, index, thumbnail = fal
         element.style.width = `${viewport.width}px`;
         element.style.height = `${viewport.height}px`;
         render = page.render({
+          annotationMode: interactiveFields ? pdfjs.AnnotationMode.ENABLE_FORMS : pdfjs.AnnotationMode.ENABLE,
           canvasContext: element.getContext('2d'),
           viewport,
           transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0],
@@ -130,7 +131,7 @@ export const PageCanvas = memo(function PageCanvas({ pdf, index, thumbnail = fal
       render?.cancel();
       textLayer?.cancel();
     };
-  }, [pdf, index, thumbnail, visible, zoom, viewportSize, onScale]);
+  }, [pdf, index, thumbnail, visible, zoom, viewportSize, onScale, interactiveFields]);
 
   return <div ref={container} className={thumbnail ? 'thumbnail-preview' : 'page-preview'}>
     <div ref={canvas} className="canvas-holder" style={{ visibility: status === 'ready' ? 'visible' : 'hidden' }} />

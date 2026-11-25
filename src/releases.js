@@ -3,6 +3,12 @@ import packageInfo from '../package.json';
 export const APP_VERSION = packageInfo.version;
 export const RELEASE_STORAGE_KEY = 'pdf-studio-release-seen';
 export const RELEASES = {
+  '0.12.0': [
+    'Recognize likely text fields, checkbox squares and character boxes on vector forms.',
+    'Review suggestions before creating real, editable PDF form fields.',
+    'Type directly on the page, toggle checkboxes and Tab between fields without an Apply box.',
+    'Save field values together, with Undo/Redo and editable fields preserved.',
+  ],
   '0.11.0': [
     'Fill printed forms by clicking blank spaces to type or mark a checkbox.',
     'Edit supported embedded-font text while preserving its original font and page graphics.',

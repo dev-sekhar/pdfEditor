@@ -26,11 +26,11 @@ Manual acceptance:
 3. Open an AcroForm. Fill a text field, checkbox, radio and dropdown from the
    forms panel. Verify preview, save and reopen in a second PDF viewer. Field
    values and widgets must remain interactive. Check read-only rejection.
-4. Open any printed table/form, including tests/fixtures/cms1500.pdf. Verify the
-   diagnosis says there are no interactive fields. Click Fill form, click a
-   blank space, type and Apply entry. Mark a checkbox using the X entry type,
-   or create an interactive field, fill it, save and reopen. Scans have the same
-   visual-fill path; no OCR is claimed.
+4. On a printed vector form, choose Fill form. Review suggested fields, exclude
+   any incorrect region, and create interactive fields. Type directly, Tab,
+   toggle a checkbox, Undo/Redo, Save and reopen. Values must remain editable
+   AcroForm fields. Recognize the next page separately. Free text fill retains
+   the older visual overlay path for scanned or unrecognized areas; no OCR is claimed.
 5. Open XFA/hybrid and malformed-widget fixtures. Verify the explanation and
    blocked mutation. Do not treat a PDF that renders blank as successfully
    filled. Dynamic XFA rendering and execution are unsupported.

@@ -124,3 +124,11 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .fill-entry-editor { position: absolute; display: flex; flex-wrap: wrap; gap: 4px; max-width: 240px; background: white; padding: 6px; border: 1px solid #2563eb; box-shadow: 0 2px 10px #0003; }
 .fill-entry-editor input { width: 210px; }
 .fill-entry-target { position: absolute; padding: 1px 4px; font-size: 10px; opacity: .7; }
+.live-form-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.native-pdf-field { position: absolute; pointer-events: auto; box-sizing: border-box; margin: 0; padding: 1px 2px; border: 1px solid #2563eb66; border-radius: 0; background: #dbeafe55; color: #111; min-width: 0; }
+.native-pdf-field:focus { outline: 2px solid #2563eb; background: #fff; }
+.native-pdf-field[type=checkbox], .native-pdf-field[type=radio] { padding: 0; accent-color: #174ea6; }
+.recognition-layer { position: absolute; inset: 0; z-index: 12; pointer-events: none; }
+.recognition-controls { position: fixed; right: 12px; bottom: 48px; width: 280px; max-height: 220px; overflow: auto; background: #fffbe6; color: #172033; padding: 12px; border: 1px solid #d6b84c; box-shadow: 0 2px 12px #0003; pointer-events: auto; z-index: 2; }
+.recognized-field { position: absolute; padding: 0; min-width: 0; border: 1px solid #0d9488; border-radius: 0; background: #14b8a633; pointer-events: auto; }
+.recognized-field.excluded { border-color: #e11d48; background: #e11d4822; }

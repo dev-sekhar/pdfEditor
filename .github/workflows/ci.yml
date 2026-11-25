@@ -13,4 +13,4 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Verify native text and claims-form workflows
-        run: npx playwright test tests/e2e/native-forms.spec.js
+        run: npx playwright test tests/e2e/native-forms.spec.js tests/e2e/recognized-forms.spec.js

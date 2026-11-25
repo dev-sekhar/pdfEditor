@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 const { PDFDocument, StandardFonts } = createRequire(import.meta.url)('pdf-lib');
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.11.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.12.0'));
   await page.goto('/');
 });
 async function upload(page, doc) {
@@ -77,7 +77,7 @@ test('printed layouts support direct text and checkbox entries with undo and exp
   const doc=await PDFDocument.create();const p=doc.addPage([400,500]);
   p.drawRectangle({x:40,y:250,width:300,height:40,borderWidth:1});
   await upload(page,doc);
-  await page.getByRole('button',{name:'Fill form',exact:true}).click();
+  await page.getByRole('button',{name:'Free text fill',exact:true}).click();
   const layer=page.getByLabel('Fill printed form',{exact:true});
   await expect(layer.getByRole('status')).toContainText('Click a blank space');
   await layer.click({position:{x:100,y:180}});

@@ -54,7 +54,8 @@ export default function FormsPanel({ bytes, pageIndex, disabled, onModify, onFil
   return <section className="forms-panel" aria-label="PDF forms">
     <h3>PDF forms</h3>
     {diagnosis && <p role="status" aria-label="Form diagnosis">{diagnosis.message}</p>}
-    {diagnosis && !diagnosis.protected && <button disabled={disabled} onClick={onFillPrinted}>Click to fill blank spaces</button>}
+    {diagnosis && !diagnosis.protected && <button disabled={disabled} onClick={onFillPrinted}>{fields.length?'Type into fields on page':'Recognize blanks and fill directly'}</button>}
+    {fields.length>0&&<p>Type directly into the highlighted fields on the page. Tab moves between fields. Save PDF writes all values and keeps the fields editable.</p>}
     {active?.readOnly && <p>This field is read-only.</p>}
     <p className="muted">Fill fields, edit their properties, or add interactive fields. Labels printed on the page are separate PDF text.</p>
     <label>Existing fields
