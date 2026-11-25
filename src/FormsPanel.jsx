@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { inspectForms } from './forms';
+import { inspectForms, diagnoseForms } from './forms';
 
 const TYPES = [['text', 'Text'], ['checkbox', 'Checkbox'], ['radio', 'Radio group'], ['dropdown', 'Dropdown'], ['list', 'List']];
 function parseOptions(value) { return value.split(/\r?\n|,/).map(v => v.trim()).filter(Boolean); }
@@ -7,14 +7,16 @@ const number = value => Number(value);
 
 export default function FormsPanel({ bytes, pageIndex, disabled, onModify }) {
   const [fields, setFields] = useState([]);
+  const [diagnosis, setDiagnosis] = useState(null);
   const [selected, setSelected] = useState('');
   const [mode, setMode] = useState('fill');
   const [error, setError] = useState('');
   const [draft, setDraft] = useState({});
   useEffect(() => {
     let live = true;
-    if (!bytes) { setFields([]); return; }
-    inspectForms(bytes).then(items => { if (live) { setFields(items); setError(''); } })
+    if (!bytes) { setFields([]); setDiagnosis(null); setError(''); return; }
+    setFields([]); setDiagnosis(null);
+    Promise.all([inspectForms(bytes), diagnoseForms(bytes)]).then(([items, info]) => { if (live) { setFields(items); setDiagnosis(info); setError(''); } })
       .catch(cause => { if (live) setError('Could not read PDF form fields: ' + cause.message); });
     return () => { live = false; };
   }, [bytes]);
@@ -24,7 +26,7 @@ export default function FormsPanel({ bytes, pageIndex, disabled, onModify }) {
     const rect = active.widgets[0]?.rect || { x: 40, y: 40, width: 160, height: 24 };
     setDraft({ name: active.name, required: active.required, value: active.value,
       options: (active.options || []).join('\n'), ...rect });
-  }, [selected, bytes]);
+  }, [active]);
   function createDraft() {
     setSelected('');
     setDraft({ name: '', type: 'text', required: false, x: 40, y: 40, width: 160, height: 24, options: '' });
@@ -48,8 +50,11 @@ export default function FormsPanel({ bytes, pageIndex, disabled, onModify }) {
   }
   function rectangle() { return Object.fromEntries(['x','y','width','height'].map(key => [key, number(draft[key])])); }
   const update = (key, value) => setDraft(old => ({ ...old, [key]: value }));
+  disabled = disabled || !diagnosis || diagnosis.protected;
   return <section className="forms-panel" aria-label="PDF forms">
     <h3>PDF forms</h3>
+    {diagnosis && <p role="status" aria-label="Form diagnosis">{diagnosis.message}</p>}
+    {active?.readOnly && <p>This field is read-only.</p>}
     <p className="muted">Fill fields, edit their properties, or add interactive fields. Labels printed on the page are separate PDF text.</p>
     <label>Existing fields
       <select aria-label="Existing form field" value={selected} onChange={event => { setSelected(event.target.value); setMode('fill'); }} disabled={disabled || !fields.length}>
@@ -80,7 +85,7 @@ export default function FormsPanel({ bytes, pageIndex, disabled, onModify }) {
           : active.type === 'list'
             ? <label>Value<select aria-label="Form field value" value={Array.isArray(draft.value) ? draft.value[0] || '' : draft.value || ''} onChange={e => update('value', [e.target.value])}><option value="">Choose…</option>{active.options.map(x => <option key={x} value={x}>{x}</option>)}</select></label>
             : <label>Value<input aria-label="Form field value" value={draft.value ?? ''} onChange={e => update('value', e.target.value)} /></label>)}
-      <button className="primary" disabled={disabled} onClick={apply}>Apply form change</button>
+      <button className="primary" disabled={disabled || active?.readOnly} onClick={apply}>Apply form change</button>
     </>}
     {error && <p className="error" role="alert">{error}</p>}
   </section>;

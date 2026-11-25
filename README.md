@@ -151,3 +151,42 @@ Page images renders each current page at 144 DPI and embeds it as a picture in W
 Export uses only the current PDF bytes, including current page edits and applied redactions. Pending redactions must be applied or cleared first. It never reads the original pre-redaction source or restores discarded history. Cancellation or conversion errors leave the PDF intact. Cancellation is available during conversion; the native Save As dialog supplies cancellation after saving starts. Once writing has started, the app does not claim that it can cancel that write.
 
 The cloud workflow additionally renders synthetic DOCX export samples in LibreOffice and verifies pagination, with page PNGs retained for visual QA. This complements the DOCX XML/image checks and Windows browser/native build checks. Conversion supports up to 200 pages, 100 MiB of PDF input, 2 million extracted characters, 16 million pixels per rendered page and 128 million rendered pixels in total; failures do not produce a partial export.
+# Native text editing and claims-form diagnostics (dev milestone)
+
+Use **Edit existing text**, click a supported text run on the page, change its
+value and apply. The PDF text-show instruction is replaced; there is no white
+rectangle or replacement overlay. Undo/Redo and Save retain the change.
+This is a conservative first native-content milestone, not Acrobat parity.
+
+Supported: simple horizontal single-show runs in unembedded standard Latin
+fonts, printable ASCII replacements that fit the original width, original
+font/size/color/position. No paragraph reflow, font substitution, OCR, glyph
+arrays/kerning, embedded/subset fonts, arbitrary transforms, clipping, images,
+XObjects or complex page graphics. If any page instruction is outside the
+supported grammar, the entire page is rejected with an explanation. Existing
+Add text remains explicitly an overlay. Text replacement is **not redaction**:
+unreferenced original objects may remain in the saved file; use secure redaction
+for sensitive information.
+
+The PDF forms panel diagnoses the catalog before accessing form APIs:
+
+| Document | Behavior |
+| --- | --- |
+| AcroForm | Fill supported text, checkbox, radio and choice fields; preserve widgets and the field tree |
+| XFA, including hybrid | Preserve the XFA packet; block form/native-text edits and page copying; explain viewer requirement |
+| Printed/scanned/noninteractive | Explain absence of interactive fields; offer Add text or Create field; no OCR |
+| Unattached widgets | Block automatic repair and explain the ambiguity |
+| Signature fields | Block form/native-text edits; no signature validation is claimed |
+| Read-only fields | Show status and reject mutation |
+
+Only the changed field's appearance is regenerated. Untouched custom/embedded
+font appearances are preserved. The changed field currently uses Helvetica:
+unsupported Unicode raises an error and commits no change. JavaScript actions,
+calculations, XFA execution, and full field-formatting fidelity are unsupported.
+Field values are edited from the forms panel; on-page widgets are rendered in
+the preview, not live browser form controls. Page copying/reordering/rotation
+with forms remains blocked to prevent field loss.
+
+The user's medical claims PDF was not provided. Its type and exact failure
+cannot be diagnosed. Regression coverage includes a public blank CMS-1500
+printed sample and synthetic AcroForm/XFA documents; see tests/fixtures/README.md.

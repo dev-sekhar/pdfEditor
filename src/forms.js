@@ -1,4 +1,5 @@
 import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
+import { formDiagnostics, requireEditableForm } from './form-diagnostics';
 
 const TYPES = {
   PDFTextField: 'text', PDFCheckBox: 'checkbox',
@@ -40,11 +41,13 @@ function widgetLocations(doc, field) {
 }
 export async function inspectForms(bytes) {
   const doc = await PDFDocument.load(bytes);
+  if (formDiagnostics(doc).protected) return [];
   return doc.getForm().getFields().map(field => {
     const type = kind(field);
     return {
       name: field.getName(), type, value: fieldValue(field, type),
       required: field.isRequired(),
+      readOnly: field.isReadOnly(),
       options: type === 'radio' || type === 'dropdown' || type === 'list' ? field.getOptions() : [],
       widgets: widgetLocations(doc, field),
     };
@@ -52,10 +55,15 @@ export async function inspectForms(bytes) {
 }
 export async function hasFormFields(bytes) {
   const doc = await PDFDocument.load(bytes);
-  return doc.getForm().getFields().length > 0;
+  const info = formDiagnostics(doc);
+  return info.fields > 0 || info.protected;
+}
+export async function diagnoseForms(bytes) {
+  return formDiagnostics(await PDFDocument.load(bytes));
 }
 export async function modifyForm(bytes, operation) {
   const doc = await PDFDocument.load(bytes);
+  requireEditableForm(doc);
   const form = doc.getForm();
   const name = operation.name;
   if (operation.action === 'create') {
@@ -90,6 +98,7 @@ export async function modifyForm(bytes, operation) {
   } else {
     const field = form.getField(name);
     const type = kind(field);
+    if (field.isReadOnly()) throw new Error('This field is read-only.');
     if (type === 'unsupported') throw new Error('This field type cannot be edited.');
     if (operation.action === 'fill') {
       if (type === 'text') field.setText(String(operation.value ?? ''));
@@ -98,8 +107,11 @@ export async function modifyForm(bytes, operation) {
         const options = field.getOptions();
         const selection = type === 'list' ? operation.value : String(operation.value ?? '');
         const values = Array.isArray(selection) ? selection : [selection];
-        if (values.some(value => !options.includes(value))) throw new Error('Select a valid field option.');
-        field.select(selection);
+        if (values.every(value => value === '')) field.clear();
+        else {
+          if (values.some(value => !options.includes(value))) throw new Error('Select a valid field option.');
+          field.select(selection);
+        }
       }
     } else if (operation.action === 'edit') {
       if (typeof operation.required === 'boolean') operation.required ? field.enableRequired() : field.disableRequired();
@@ -121,11 +133,17 @@ export async function modifyForm(bytes, operation) {
         if (type !== 'dropdown' && type !== 'list') throw new Error('Options can only be changed for choice fields.');
         const options = operation.options.map(x => String(x).trim()).filter(Boolean);
         if (!options.length || new Set(options).size !== options.length) throw new Error('Provide unique nonempty choices.');
-        field.clear();
-        field.acroField.dict.set(PDFName.of('Opt'), doc.context.obj(options.map(x => PDFString.of(x))));
+        if (JSON.stringify(options) !== JSON.stringify(field.getOptions())) {
+          field.clear();
+          field.acroField.dict.set(PDFName.of('Opt'), doc.context.obj(options.map(x => PDFString.of(x))));
+        }
       }
     } else throw new Error('Unknown form operation.');
   }
-  form.updateFieldAppearances();
-  return new Uint8Array(await doc.save());
+  // Regenerate only the changed field. Other fields may use embedded fonts or
+  // custom appearances which must survive untouched.
+  const changed = form.getField(operation.rename || name);
+  changed.defaultUpdateAppearances(await form.getDefaultFont());
+  form.acroForm.dict.set(PDFName.of('NeedAppearances'), doc.context.obj(false));
+  return new Uint8Array(await doc.save({ updateFieldAppearances: false }));
 }

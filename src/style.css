@@ -110,3 +110,9 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .annotation-inspector select { width: 100%; min-width: 0; padding: 6px; }
 .text-overlay-handle { fill: #2455c9; stroke: white; stroke-width: 2px; cursor: move; }
 .text-overlay-handle:focus { outline: none; stroke: #f59e0b; stroke-width: 4px; }
+/* Native content editor: hit targets follow PDF coordinates at every zoom. */
+.inline-text-layer { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+.inline-run { position: absolute; padding: 0; min-width: 0; border: 1px dashed #2563eb; background: #3b82f620; pointer-events: auto; border-radius: 0; }
+.inline-help { position: sticky; top: 0; background: #fffbe6; color: #273344; padding: 8px; pointer-events: auto; max-width: 560px; }
+.inline-editor { position: absolute; display: flex; gap: 4px; background: white; padding: 8px; box-shadow: 0 2px 12px #0004; pointer-events: auto; transform: translateY(4px); z-index: 2; }
+.inline-editor input { width: 180px; }

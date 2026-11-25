@@ -2,10 +2,11 @@ import { drawTextOverlays } from './text-overlays';
 import { PDFDocument, degrees, StandardFonts } from 'pdf-lib';
 import { exportMarkup } from './markup';
 import { exportComments } from './comments';
+import { formDiagnostics } from './form-diagnostics';
 
 export async function assemble(sources, pages, overlay) {
   const docs = await Promise.all(sources.map(source => PDFDocument.load(source.bytes)));
-  const formSources = docs.filter(doc => doc.getForm().getFields().length > 0);
+  const formSources = docs.filter(doc => { const info = formDiagnostics(doc); return info.fields || info.protected; });
   const preserveOriginal = sources.length === 1 && pages.length === docs[0].getPageCount() &&
     pages.every((record, position) => record.source === 0 && record.index === position && record.rotation === 0);
   if (formSources.length && !preserveOriginal) {
@@ -26,7 +27,7 @@ export async function assemble(sources, pages, overlay) {
     const font = await out.embedFont(StandardFonts.Helvetica);
     out.getPage(overlay.page).drawText(overlay.text, { x: overlay.x, y: overlay.y, size: overlay.size, font });
   }
-  return out.save();
+  return out.save({ updateFieldAppearances: false });
 }
 // Bake only the legacy text overlay. Keep annotation metadata editable and
 // attach it once when the resulting source is assembled into the document.

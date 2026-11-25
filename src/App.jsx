@@ -30,6 +30,8 @@ import WordExportDialog from './WordExportDialog';
 import FormsPanel from './FormsPanel';
 import { modifyForm } from './forms';
 import { saveWord } from './save-word';
+import InlineTextLayer from './InlineTextLayer';
+import { replaceInlineText } from './inline-text';
 
 export default function App() {
   const [history, dispatch] = useReducer(historyReducer, undefined, createHistory);
@@ -38,6 +40,7 @@ export default function App() {
   const [selection, setSelection] = useState(null);
 
   const [placingText, setPlacingText] = useState(false);
+  const [editingExisting, setEditingExisting] = useState(false);
   const [textStyle, setTextStyle] = useState(DEFAULT_TEXT_STYLE);
   const [textStyleValid, setTextStyleValid] = useState(true);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
@@ -164,6 +167,16 @@ export default function App() {
         index, bytes: updated, label: operation.action === 'create' ? 'Create form field' :
           operation.action === 'edit' ? 'Edit form field' : 'Fill form field',
       } });
+    });
+  }
+
+  async function applyInlineEdit(run, value) {
+    if (editLocked || !bytes) return;
+    await perform(async () => {
+      const updated = await replaceInlineText(bytes, index, run.id, run.text, value);
+      const imported = await importStudioAnnotations(updated);
+      const nextPages = pages.map((page, i) => ({ id: page.id, source: 0, index: i, rotation: 0, annotations: imported.annotations[i] }));
+      await commit([{ name: documentName.current, bytes: imported.bytes }], nextPages, index, 'Edit existing text');
     });
   }
 
@@ -406,6 +419,7 @@ export default function App() {
       <button aria-label={redoLabel} title={`${redoLabel} (Ctrl+Y or Ctrl+Shift+Z)`} disabled={editLocked || !canRedo}
         onClick={() => navigateHistory('redo')}>↷ Redo</button>
       <span className="tool-divider" />
+      <button disabled={editLocked || !pages.length} aria-pressed={editingExisting} onClick={() => { setEditingExisting(value => !value); setPlacingText(false); }}>Edit existing text</button>
       <button disabled={editLocked || !pages.length || index === 0}
         onClick={() => change(move(pages, index, index - 1), index - 1, 'Move page')}>↑ Move</button>
       <button disabled={editLocked || !pages.length || index === pages.length - 1}
@@ -463,6 +477,7 @@ export default function App() {
         {bytes ? (preview.pdf ? <PageCanvas key={`${preview.id}-${index}`} pdf={preview.pdf} index={index}
           zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} onSelection={setSelection}
           renderOverlay={pageViewport => <>
+            {editingExisting && !placingText && !markingRedactions && <InlineTextLayer bytes={bytes} pageIndex={index} viewport={pageViewport} disabled={editLocked} onReplace={applyInlineEdit} />}
             <TextOverlayLayer viewport={pageViewport} annotations={pages[index]?.annotations} placing={placingText} disabled={editLocked}
               onPlace={placeText} onSelect={setSelectedAnnotationId} onMove={(id, x, y) => change(editPageAnnotation(pages, pages[index].id, id, { x, y }), index, 'Move text')} />
             <CommentMarkers viewport={pageViewport} annotations={pages[index]?.annotations}
@@ -498,7 +513,7 @@ export default function App() {
             change(removeAnnotation(pages, pages[index].id, id), index, 'Delete annotation');
           }} />
         <h3>Add text</h3>
-        <p>Overlay text on the selected page (existing text editing is not yet supported).</p>
+        <p>Add a text overlay, including on printed forms. For supported native text runs, use Edit existing text.</p>
         <textarea aria-label="Text to add" value={text} onChange={event => setText(event.target.value)} placeholder="Enter text" />
         <TextStyleControls defaults={textStyle} selected={selectedText} annotations={pages[index]?.annotations ?? []}
           disabled={editLocked} previewText={text} onDefaultsChange={setTextStyle} onSelect={setSelectedAnnotationId} onValidityChange={setTextStyleValid}

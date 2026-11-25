@@ -78,6 +78,6 @@ export async function importStudioAnnotations(bytes) {
     }
     return hydrated;
   });
-  return { bytes: stripped ? await document.save({ addDefaultPage: false }) : bytes,
+  return { bytes: stripped ? await document.save({ addDefaultPage: false, updateFieldAppearances: false }) : bytes,
     count: document.getPageCount(), annotations };
 }
