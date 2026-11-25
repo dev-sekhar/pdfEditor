@@ -116,3 +116,11 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
 .inline-help { position: sticky; top: 0; background: #fffbe6; color: #273344; padding: 8px; pointer-events: auto; max-width: 560px; }
 .inline-editor { position: absolute; display: flex; gap: 4px; background: white; padding: 8px; box-shadow: 0 2px 12px #0004; pointer-events: auto; transform: translateY(4px); z-index: 2; }
 .inline-editor input { width: 180px; }
+.fill-form-layer { position: absolute; inset: 0; z-index: 9; cursor: text; }
+.fill-form-help { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; background: #fffbe6; color: #273344; cursor: default; }
+.fill-form-help span { width: 100%; font-size: 13px; }
+.fill-form-help label { display: flex; align-items: center; gap: 4px; }
+.fill-form-help input { width: 55px; }
+.fill-entry-editor { position: absolute; display: flex; flex-wrap: wrap; gap: 4px; max-width: 240px; background: white; padding: 6px; border: 1px solid #2563eb; box-shadow: 0 2px 10px #0003; }
+.fill-entry-editor input { width: 210px; }
+.fill-entry-target { position: absolute; padding: 1px 4px; font-size: 10px; opacity: .7; }

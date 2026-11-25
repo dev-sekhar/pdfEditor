@@ -10,7 +10,7 @@ export default function InlineTextLayer({ bytes, pageIndex, viewport, disabled, 
     return () => { live = false; };
   }, [bytes, pageIndex]);
   return <div className="inline-text-layer">
-    <div className="inline-help" role="status">{error || 'Click a text run to edit its actual PDF content. Same font and position; replacement must fit. No reflow. This is not secure redaction.'}</div>
+    <div className="inline-help" role="status">{error || 'Click an outlined text run to edit its PDF content. Only supported runs are outlined. Original font and position; replacement must fit and use existing glyphs. No reflow. This is not secure redaction.'}</div>
     {runs.map(run => {
       const rect = viewport.convertToViewportRectangle([run.x, run.y, run.x + Math.max(run.width, 8), run.y + run.size]);
       const style = { left: Math.min(rect[0], rect[2]), top: Math.min(rect[1], rect[3]), width: Math.abs(rect[2]-rect[0]), height: Math.abs(rect[3]-rect[1]) };

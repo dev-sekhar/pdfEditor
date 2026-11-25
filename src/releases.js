@@ -3,6 +3,12 @@ import packageInfo from '../package.json';
 export const APP_VERSION = packageInfo.version;
 export const RELEASE_STORAGE_KEY = 'pdf-studio-release-seen';
 export const RELEASES = {
+  '0.11.0': [
+    'Fill printed forms by clicking blank spaces to type or mark a checkbox.',
+    'Edit supported embedded-font text while preserving its original font and page graphics.',
+    'Keep replacements within the original width and existing glyphs; unsupported runs stay protected.',
+    'Fill interactive fields and save their values without flattening the form.',
+  ],
   '0.10.0': [
     'Export your current PDF as a Word document (.docx).',
     'Choose editable text or page images that preserve appearance.',

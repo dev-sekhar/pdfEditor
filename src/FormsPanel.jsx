@@ -5,7 +5,7 @@ const TYPES = [['text', 'Text'], ['checkbox', 'Checkbox'], ['radio', 'Radio grou
 function parseOptions(value) { return value.split(/\r?\n|,/).map(v => v.trim()).filter(Boolean); }
 const number = value => Number(value);
 
-export default function FormsPanel({ bytes, pageIndex, disabled, onModify }) {
+export default function FormsPanel({ bytes, pageIndex, disabled, onModify, onFillPrinted }) {
   const [fields, setFields] = useState([]);
   const [diagnosis, setDiagnosis] = useState(null);
   const [selected, setSelected] = useState('');
@@ -54,6 +54,7 @@ export default function FormsPanel({ bytes, pageIndex, disabled, onModify }) {
   return <section className="forms-panel" aria-label="PDF forms">
     <h3>PDF forms</h3>
     {diagnosis && <p role="status" aria-label="Form diagnosis">{diagnosis.message}</p>}
+    {diagnosis && !diagnosis.protected && <button disabled={disabled} onClick={onFillPrinted}>Click to fill blank spaces</button>}
     {active?.readOnly && <p>This field is read-only.</p>}
     <p className="muted">Fill fields, edit their properties, or add interactive fields. Labels printed on the page are separate PDF text.</p>
     <label>Existing fields

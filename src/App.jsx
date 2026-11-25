@@ -31,6 +31,7 @@ import FormsPanel from './FormsPanel';
 import { modifyForm } from './forms';
 import { saveWord } from './save-word';
 import InlineTextLayer from './InlineTextLayer';
+import FillFormLayer from './FillFormLayer';
 import { replaceInlineText } from './inline-text';
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
 
   const [placingText, setPlacingText] = useState(false);
   const [editingExisting, setEditingExisting] = useState(false);
+  const [fillingForm, setFillingForm] = useState(false);
   const [textStyle, setTextStyle] = useState(DEFAULT_TEXT_STYLE);
   const [textStyleValid, setTextStyleValid] = useState(true);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
@@ -105,14 +107,14 @@ export default function App() {
 
   // A change is committed only after its PDF is successfully assembled. The
   // immediate ref prevents double clicks or keyboard input from overlapping.
-  async function perform(operation) {
+  async function perform(operation, propagateError = false) {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     setError('');
     setSaveStatus('');
     try { return await operation(); }
-    catch (cause) { setError(String(cause)); }
+    catch (cause) { setError(String(cause)); if (propagateError) throw cause; }
     finally { busyRef.current = false; setBusy(false); }
   }
 
@@ -419,7 +421,8 @@ export default function App() {
       <button aria-label={redoLabel} title={`${redoLabel} (Ctrl+Y or Ctrl+Shift+Z)`} disabled={editLocked || !canRedo}
         onClick={() => navigateHistory('redo')}>↷ Redo</button>
       <span className="tool-divider" />
-      <button disabled={editLocked || !pages.length} aria-pressed={editingExisting} onClick={() => { setEditingExisting(value => !value); setPlacingText(false); }}>Edit existing text</button>
+      <button disabled={editLocked || !pages.length} aria-pressed={editingExisting} onClick={() => { setEditingExisting(value => !value); setFillingForm(false); setPlacingText(false); }}>Edit existing text</button>
+      <button disabled={editLocked || !pages.length} aria-pressed={fillingForm} onClick={() => { setFillingForm(value => !value); setEditingExisting(false); setPlacingText(false); }}>Fill form</button>
       <button disabled={editLocked || !pages.length || index === 0}
         onClick={() => change(move(pages, index, index - 1), index - 1, 'Move page')}>↑ Move</button>
       <button disabled={editLocked || !pages.length || index === pages.length - 1}
@@ -477,6 +480,13 @@ export default function App() {
         {bytes ? (preview.pdf ? <PageCanvas key={`${preview.id}-${index}`} pdf={preview.pdf} index={index}
           zoom={zoom} viewportRef={viewport} onScale={setDisplayZoom} onSelection={setSelection}
           renderOverlay={pageViewport => <>
+            {fillingForm && !placingText && !markingRedactions && <FillFormLayer key={pages[index]?.id} bytes={bytes} viewport={pageViewport} annotations={pages[index]?.annotations} disabled={editLocked} onApply={async entry=>{
+              await perform(async()=>{
+                const nextPages=entry.id?editPageAnnotation(pages,pages[index].id,entry.id,entry):pages.map((page,i)=>i===index?{...page,annotations:[...(page.annotations||[]),{...entry,id:crypto.randomUUID(),type:'text'}]}:page);
+                await commit(sources,nextPages,index,entry.id?'Edit form entry':'Fill printed form');
+              }, true);
+            }}/>
+            }
             {editingExisting && !placingText && !markingRedactions && <InlineTextLayer bytes={bytes} pageIndex={index} viewport={pageViewport} disabled={editLocked} onReplace={applyInlineEdit} />}
             <TextOverlayLayer viewport={pageViewport} annotations={pages[index]?.annotations} placing={placingText} disabled={editLocked}
               onPlace={placeText} onSelect={setSelectedAnnotationId} onMove={(id, x, y) => change(editPageAnnotation(pages, pages[index].id, id, { x, y }), index, 'Move text')} />
@@ -493,7 +503,7 @@ export default function App() {
           </div>}
       </section>
       <aside className="text-sidebar">
-        <FormsPanel bytes={bytes} pageIndex={index} disabled={editLocked || !pages.length} onModify={applyFormOperation} />
+        <FormsPanel bytes={bytes} pageIndex={index} disabled={editLocked || !pages.length} onModify={applyFormOperation} onFillPrinted={()=>{setFillingForm(true);setEditingExisting(false);setPlacingText(false);}} />
         <RedactionControls marking={markingRedactions} disabled={busy || !pages.length}
           marks={redactionMarks.filter(mark => mark.pageId === pages[index]?.id)} totalMarks={redactionMarks.length}
           onMarkingChange={value => { setMarkingRedactions(value); if (value) setPlacingText(false); }}

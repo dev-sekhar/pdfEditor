@@ -158,12 +158,14 @@ value and apply. The PDF text-show instruction is replaced; there is no white
 rectangle or replacement overlay. Undo/Redo and Save retain the change.
 This is a conservative first native-content milestone, not Acrobat parity.
 
-Supported: simple horizontal single-show runs in unembedded standard Latin
-fonts, printable ASCII replacements that fit the original width, original
-font/size/color/position. No paragraph reflow, font substitution, OCR, glyph
-arrays/kerning, embedded/subset fonts, arbitrary transforms, clipping, images,
-XObjects or complex page graphics. If any page instruction is outside the
-supported grammar, the entire page is rejected with an explanation. Existing
+Supported: horizontal single-show runs in standard Latin fonts and simple
+embedded TrueType subsets with one-byte bfchar maps and explicit glyph widths.
+Replacements reuse the original font, glyph encoding, size, color and position,
+and must fit the original width. Surrounding vector graphics and XObjects are
+preserved. Unsupported runs are not exposed as editable; unknown content syntax
+blocks editing conservatively. No paragraph reflow, font substitution, OCR,
+kerning arrays, composite/CID font editing, arbitrary rotated text or clipping.
+Embedded subsets support only their existing mapped glyphs. Existing
 Add text remains explicitly an overlay. Text replacement is **not redaction**:
 unreferenced original objects may remain in the saved file; use secure redaction
 for sensitive information.
@@ -174,7 +176,7 @@ The PDF forms panel diagnoses the catalog before accessing form APIs:
 | --- | --- |
 | AcroForm | Fill supported text, checkbox, radio and choice fields; preserve widgets and the field tree |
 | XFA, including hybrid | Preserve the XFA packet; block form/native-text edits and page copying; explain viewer requirement |
-| Printed/scanned/noninteractive | Explain absence of interactive fields; offer Add text or Create field; no OCR |
+| Printed/scanned/noninteractive | Use Fill form to click and type in blank spaces or mark a checkbox with X; optionally Create field; no OCR |
 | Unattached widgets | Block automatic repair and explain the ambiguity |
 | Signature fields | Block form/native-text edits; no signature validation is claimed |
 | Read-only fields | Show status and reject mutation |
@@ -187,6 +189,15 @@ Field values are edited from the forms panel; on-page widgets are rendered in
 the preview, not live browser form controls. Page copying/reordering/rotation
 with forms remains blocked to prevent field loss.
 
-The user's medical claims PDF was not provided. Its type and exact failure
-cannot be diagnosed. Regression coverage includes a public blank CMS-1500
-printed sample and synthetic AcroForm/XFA documents; see tests/fixtures/README.md.
+**Fill form** works on printed tables and outlined/scanned layouts without
+requiring original fields. Select Text or Mark checkbox (X), choose a size,
+click a blank space, type, and Apply entry. Click an entry's Edit button to
+revise it during the session. Undo/Redo and Save preserve the visible entries.
+These are text overlays; saving does not turn them into AcroForm fields.
+Use Create field when the saved document needs interactive inputs.
+
+Local sample tests reproduced both reported cases: a noninteractive printed
+questionnaire and a carousel using embedded TrueType subsets over graphics.
+Neither user document is checked in or uploaded to CI. Set PDF_EDITOR_CAROUSEL
+and PDF_EDITOR_PRINTED_FORM to local paths to run tests/e2e/local-samples.spec.js.
+Reusable CI fixtures are synthetic or public; see tests/fixtures/README.md.

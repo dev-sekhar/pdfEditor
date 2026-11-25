@@ -30,7 +30,7 @@ export function formDiagnostics(doc) {
       signed ? 'Signature fields detected. Form and native text editing are blocked; signature validation is unavailable.' :
       orphanWidgets ? 'Unattached form widgets detected. Automatic repair is unsafe; editing is blocked.' :
       fields ? 'AcroForm detected. Choose a field below to fill it; changes remain interactive.' :
-      'No interactive fields found. This may be a printed or scanned form. Use Add text to fill visually, or Create field to make it interactive; no OCR is performed.' };
+      'No interactive fields found. This may be a printed or scanned form. Use Fill form to click and type in blank spaces, or Create field to make it interactive; no OCR is performed.' };
 }
 
 export function requireEditableForm(doc) {

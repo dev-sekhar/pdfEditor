@@ -6,7 +6,7 @@ const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const JSZip = require('jszip');
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.10.0'));
+  await page.addInitScript(() => localStorage.setItem('pdf-studio-release-seen', '0.11.0'));
 });
 
 async function fixture({ scanned = true } = {}) {

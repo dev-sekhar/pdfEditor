@@ -27,18 +27,20 @@ Manual acceptance:
    forms panel. Verify preview, save and reopen in a second PDF viewer. Field
    values and widgets must remain interactive. Check read-only rejection.
 4. Open any printed table/form, including tests/fixtures/cms1500.pdf. Verify the
-   diagnosis says there are no interactive fields. Add text in blank spaces,
+   diagnosis says there are no interactive fields. Click Fill form, click a
+   blank space, type and Apply entry. Mark a checkbox using the X entry type,
    or create an interactive field, fill it, save and reopen. Scans have the same
    visual-fill path; no OCR is claimed.
 5. Open XFA/hybrid and malformed-widget fixtures. Verify the explanation and
    blocked mutation. Do not treat a PDF that renders blank as successfully
    filled. Dynamic XFA rendering and execution are unsupported.
 
-No user document was supplied; there is no diagnosis of any particular form.
-The public CMS fixture is one generic printed-layout example.
+Also test tests/fixtures/embedded-layout.pdf: replace 'When Excel stops' with
+'When Excel ends'. Verify that the original font and dark background remain.
+Try a missing glyph and an overlong replacement: both must reject unchanged.
 
-Status before handoff: 97 unit tests and production web build passed. Local
-browser execution was not completed; the user elected to run tests. Changes
-made during final review still require the acceptance run. Windows packaging
-must be confirmed against the resulting GitHub Actions run, not inferred from
-the web build.
+Optional local acceptance against supplied samples (never uploaded to CI):
+set PDF_EDITOR_CAROUSEL and PDF_EDITOR_PRINTED_FORM to the local file paths,
+then run `npx playwright test tests/e2e/local-samples.spec.js`.
+PDF_EDITOR_LOCAL_OUTPUTS optionally stores synthetic edited copies locally.
+Only synthetic/public documents belong in tests/fixtures.
